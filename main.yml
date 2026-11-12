@@ -1,0 +1,59 @@
+name: Build STACKR Android APK
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Unpack STACKR zip and enter folder
+        run: |
+          if ls *.zip 1> /dev/null 2>&1; then
+            unzip -o "*.zip"
+          fi
+          # Find and move into the extracted project directory if nested
+          if [ -d "stackr-android-v2" ]; then
+            cd stackr-android-v2
+          elif [ -d "stackr-android" ]; then
+            cd stackr-android
+          fi
+          pwd
+          ls -la
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build Debug APK
+        run: |
+          if [ -d "stackr-android-v2" ]; then
+            cd stackr-android-v2
+          elif [ -d "stackr-android" ]; then
+            cd stackr-android
+          fi
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload STACKR APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: STACKR-Floating-Overlay-Agent-APK
+          path: '**/app/build/outputs/apk/debug/app-debug.apk'
+defaults:
+  
