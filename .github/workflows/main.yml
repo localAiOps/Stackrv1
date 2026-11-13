@@ -303,7 +303,7 @@ jobs:
                       android:layout_width="match_parent"
                       android:layout_height="wrap_content"
                       android:layout_marginTop="3dp"
-                      android:text="Next: PICKUP Clintonville"
+                      android:PICKUP Clintonville"
                       android:textColor="#9FB0C8"
                       android:textSize="11.5sp" />
                   <LinearLayout
