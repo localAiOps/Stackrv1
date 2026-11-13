@@ -538,8 +538,8 @@ jobs:
 
           object RouteStackEngine {
               var anchorMinPerMile = 1.75
-              var anchorMinPerHour = 35.00
-              var marginalMinPerMile = 2.00
+              var anchorMinPerHour = 30.00
+              var marginalMinPerMile = 2.50
               var marginalMinPerHour = 38.00
               var slaSafetyBufferMins = 5.0
               var pickupDwellMins = 4.0
@@ -1127,7 +1127,14 @@ jobs:
                   var lastLogMessage = "Waiting for incoming offer behind Waze..."
                   var onStateUpdated: (() -> Unit)? = null
               }
-
+              // ... inside your speak function:
+              fun speak(message: String) {
+                   if (!ttsReady) return
+                   val now = System.currentTimeMillis()
+                   if (now - lastSpeechTimeMs < 3500L) return
+                   lastSpeechTimeMs = now
+                   tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "STACKR_TTS")
+ 
               override fun onServiceConnected() {
                   super.onServiceConnected()
                   isRunning = true
