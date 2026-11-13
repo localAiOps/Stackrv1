@@ -424,7 +424,7 @@ jobs:
                           android:id="@+id/switchAutoAccept"
                           android:layout_width="match_parent"
                           android:layout_height="42dp"
-                          android:text="Auto-Accept STACK Offers (3s Cancel Window)"
+                          android:text="Auto-Accept STACK Offers (5s Cancel Window)"
                           android:textColor="#E8EEF8"
                           android:textStyle="bold" />
                       <Switch
@@ -537,12 +537,12 @@ jobs:
           )
 
           object RouteStackEngine {
-              var anchorMinPerMile = 1.75
-              var anchorMinPerHour = 35.00
+              var anchorMinPerMile = 1.55
+              var anchorMinPerHour = 33.00
               var marginalMinPerMile = 2.00
               var marginalMinPerHour = 38.00
               var slaSafetyBufferMins = 5.0
-              var pickupDwellMins = 4.0
+              var pickupDwellMins = 5.0
               var dropoffDwellMins = 2.0
               var fallbackAvgMph = 32.0
               var roadTortuosity = 1.32
@@ -551,7 +551,19 @@ jobs:
               var autoAcceptEnabled = true
               var autoLaunchWaze = true
               var deadheadMode = false
+              var isRouteActive = Boolean = false
+                private set
+            //Call this whether automated or manual
+            fun activateRouteSession(anchorId: String){
+              isRouteAcrive = true
+            // Kick off your background trip filtering, earnings floor checks, and tracking logic here {
+              startTrackingDispatcher(anchorId)
+           {
 
+           privat fun startTrackingDispatcher(anchorId: String)  {
+           // Your existing rout tracing startup logic
+           {
+        {   
               var driverLat = 39.9612
               var driverLng = -82.9988
 
@@ -884,7 +896,7 @@ jobs:
           @SuppressLint("StaticFieldLeak")
           object StackrOverlayManager {
               var isOverlayEnabled = true
-              var autoAcceptCountdownSecs = 3
+              var autoAcceptCountdownSecs = 5
 
               private var windowManager: WindowManager? = null
               private var rootView: View? = null
@@ -1159,7 +1171,7 @@ jobs:
                   fun traverse(node: AccessibilityNodeInfo?) {
                       if (node == null) return
                       val txt = node.text?.toString()?.trim()
-                      if (!txt.isNullOrEmpty()) {
+                        if (!txt.isNullOrEmpty()) {
                           collectedText.append(txt).append(" ")
                           val lower = txt.lowercase(Locale.US)
                           if (lower == "accept" || lower == "accept order" || lower == "accept delivery") hasAcceptButton = true
@@ -1320,14 +1332,18 @@ jobs:
                       RouteStackEngine.autoAcceptEnabled = isChecked
                       StackrOverlayManager.refreshPill()
                   }
+                  
                   switchWaze.setOnCheckedChangeListener { _, isChecked -> RouteStackEngine.autoLaunchWaze = isChecked }
                   switchDeadhead.setOnCheckedChangeListener { _, isChecked -> RouteStackEngine.deadheadMode = isChecked }
 
                   btnAccessibility.setOnClickListener { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
                   btnOverlayPerm.setOnClickListener { openOverlayPermissionSettings() }
+                  btnAcceptManual.setOnClickListener{Tell the engine a route was manually accepted routeStackEngine.activateRouteSession(anchor.id)
 
+                  //Your existing UI code that marks the item as accepted updateUIStateToActive(anchor)
+                  
                   btnCompleteStop.setOnClickListener {
-                      StackrAccessibilityService.lastLogMessage = RouteStackEngine.completeNextStop()
+                      StackrAccessibilityService.lastLogMessage = RouteStackEngine.currentLog()
                       StackrOverlayManager.refreshPill()
                       refreshUi()
                   }
