@@ -1279,118 +1279,146 @@ jobs:
 
           files["app/src/main/java/com/builttoearn/stackr/MainActivity.kt"] = r'''package com.builttoearn.stackr
 
-          import android.Manifest
-          import android.content.Intent
-          import android.content.pm.PackageManager
-          import android.location.LocationListener
-          import android.location.LocationManager
-          import android.net.Uri
-          import android.os.Bundle
-          import android.provider.Settings
-          import android.speech.tts.TextToSpeech
-          import android.widget.Button
-          import android.widget.Switch
-          import android.widget.TextView
-          import androidx.appcompat.app.AppCompatActivity
-          import androidx.core.app.ActivityCompat
-          import java.util.Locale
-
-          class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
-              private lateinit var statusBadge: TextView
-              private lateinit var overlayBadge: TextView
-              private lateinit var lastEventText: TextView
-              private lateinit var routeSummaryText: TextView
-              private lateinit var stopsListText: TextView
-              private var localTts: TextToSpeech? = null
-              private var simStep = 0
-
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  setContentView(R.layout.activity_main)
-                  localTts = TextToSpeech(this, this)
-
-                  statusBadge = findViewById(R.id.statusBadge)
-                  overlayBadge = findViewById(R.id.overlayBadge)
-                  lastEventText = findViewById(R.id.lastEventText)
-                  routeSummaryText = findViewById(R.id.routeSummaryText)
-                  stopsListText = findViewById(R.id.stopsListText)
-
-                  val btnAccessibility = findViewById<Button>(R.id.btnEnableAccessibility)
-                  val btnOverlayPerm = findViewById<Button>(R.id.btnEnableOverlay)
-                  val switchOverlay = findViewById<Switch>(R.id.switchOverlay)
-                  val switchAutoAccept = findViewById<Switch>(R.id.switchAutoAccept)
-                  val switchWaze = findViewById<Switch>(R.id.switchWaze)
-                  val switchDeadhead = findViewById<Switch>(R.id.switchDeadhead)
-                  val btnCompleteStop = findViewById<Button>(R.id.btnCompleteStop)
-                  val btnResetRoute = findViewById<Button>(R.id.btnResetRoute)
-                  val btnSimulatePing = findViewById<Button>(R.id.btnSimulatePing)
-
-                  switchOverlay.isChecked = StackrOverlayManager.isOverlayEnabled
-                  switchAutoAccept.isChecked = RouteStackEngine.autoAcceptEnabled
-                  switchWaze.isChecked = RouteStackEngine.autoLaunchWaze
-                  switchDeadhead.isChecked = RouteStackEngine.deadheadMode
-
-                  switchOverlay.setOnCheckedChangeListener { _, isChecked ->
-                      StackrOverlayManager.isOverlayEnabled = isChecked
-                      if (isChecked) {
-                          if (Settings.canDrawOverlays(this)) StackrOverlayManager.show(this)
-                          else openOverlayPermissionSettings()
-                      } else StackrOverlayManager.hide()
-                      refreshUi()
-                  }
-
-                  switchAutoAccept.setOnCheckedChangeListener { _, isChecked ->
-                      RouteStackEngine.autoAcceptEnabled = isChecked
-                      StackrOverlayManager.refreshPill()
-                  }
-                  
-                  switchWaze.setOnCheckedChangeListener { _, isChecked -> RouteStackEngine.autoLaunchWaze = isChecked }
-                  switchDeadhead.setOnCheckedChangeListener { _, isChecked -> RouteStackEngine.deadheadMode = isChecked }
-
-                  btnAccessibility.setOnClickListener { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
-                  btnOverlayPerm.setOnClickListener { openOverlayPermissionSettings() }
-                  btnAcceptManual.setOnClickListener{Tell the engine a route was manually accepted routeStackEngine.activateRouteSession(anchor.id)
-
-                  //Your existing UI code that marks the item as accepted updateUIStateToActive(anchor)
-                  
-                  btnCompleteStop.setOnClickListener {
-                      StackrAccessibilityService.lastLogMessage = RouteStackEngine.currentLog()
-                      StackrOverlayManager.refreshPill()
-                      refreshUi()
-                  }
-
-                  btnResetRoute.setOnClickListener {
-                      RouteStackEngine.resetRoute()
-                      simStep = 0
-                      StackrAccessibilityService.lastLogMessage = "Route cleared • Ready for Anchor ping"
-                      StackrOverlayManager.refreshPill()
-                      refreshUi()
-                  }
-
-                  btnSimulatePing.setOnClickListener { runNextSimulationPing() }
-                  StackrAccessibilityService.onStateUpdated = { runOnUiThread { refreshUi() } }
-
-                  if (Settings.canDrawOverlays(this) && StackrOverlayManager.isOverlayEnabled) StackrOverlayManager.show(this)
-                  requestGpsUpdates()
-                  refreshUi()
-              }
-
-              private fun openOverlayPermissionSettings() {
-                  startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-              }
-
-              override fun onInit(status: Int) {
-                  if (status == TextToSpeech.SUCCESS) localTts?.language = Locale.US
-              }
-
-              override fun onResume() {
-                  super.onResume()
-                  if (Settings.canDrawOverlays(this) && StackrOverlayManager.isOverlayEnabled) StackrOverlayManager.show(this)
-                  refreshUi()
-              }
+          
 
               private fun requestGpsUpdates() {
-                  if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+               package com.yourpackage.app // Match your actual package name
+
+import android.content.Intent
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
+import android.view.View
+import android.widget.Button
+import android.widget.Switch
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+
+class MainActivity : AppCompatActivity() {
+
+    private lateinit var lastEventText: TextView
+    private lateinit var routeSummaryText: TextView
+    private lateinit var stopsListText: TextView
+
+    private lateinit var btnAccessibility: Button
+    private lateinit var btnOverlayPerm: Button
+    private lateinit var switchOverlay: Switch
+    private lateinit var switchAutoAccept: Switch
+    private lateinit var switchWaze: Switch
+    private lateinit var switchDeadhead: Switch
+    private lateinit var btnCompleteStop: Button
+    private lateinit var btnResetRoute: Button
+    private lateinit var btnSimulatePing: Button
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main) // Match your layout name
+
+        // Bind views
+        lastEventText = findViewById(R.id.lastEventText)
+        routeSummaryText = findViewById(R.id.routeSummaryText)
+        stopsListText = findViewById(R.id.stopsListText)
+
+        btnAccessibility = findViewById(R.id.btnEnableAccessibility)
+        btnOverlayPerm = findViewById(R.id.btnEnableOverlay)
+        switchOverlay = findViewById(R.id.switchOverlay)
+        switchAutoAccept = findViewById(R.id.switchAutoAccept)
+        switchWaze = findViewById(R.id.switchWaze)
+        switchDeadhead = findViewById(R.id.switchDeadhead)
+        btnCompleteStop = findViewById(R.id.btnCompleteStop)
+        btnResetRoute = findViewById(R.id.btnResetRoute)
+        btnSimulatePing = findViewById(R.id.btnSimulatePing)
+
+        // Set initial toggle states from engines/managers
+        switchOverlay.isChecked = StackrOverlayManager.isOverlayEnabled
+        switchAutoAccept.isChecked = RouteStackEngine.autoAcceptEnabled
+        switchWaze.isChecked = RouteStackEngine.autoLaunchWaze
+        switchDeadhead.isChecked = RouteStackEngine.deadheadMode
+
+        // Switch listeners
+        switchOverlay.setOnCheckedChangeListener { _, isChecked ->
+            StackrOverlayManager.isOverlayEnabled = isChecked
+            if (isChecked) {
+                if (Settings.canDrawOverlays(this)) {
+                    StackrOverlayManager.show()
+                } else {
+                    openOverlayPermissionSettings()
+                }
+            } else {
+                StackrOverlayManager.hide()
+            }
+        }
+
+        switchAutoAccept.setOnCheckedChangeListener { _, isChecked ->
+            RouteStackEngine.autoAcceptEnabled = isChecked
+            StackrOverlayManager.refreshPill()
+        }
+
+        switchWaze.setOnCheckedChangeListener { _, isChecked ->
+            RouteStackEngine.autoLaunchWaze = isChecked
+        }
+
+        switchDeadhead.setOnCheckedChangeListener { _, isChecked ->
+            RouteStackEngine.deadheadMode = isChecked
+        }
+
+        // Permissions & Settings button listeners
+        btnAccessibility.setOnClickListener {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
+
+        btnOverlayPerm.setOnClickListener {
+            openOverlayPermissionSettings()
+        }
+
+        // ==========================================
+        // MANUAL ACTION & COMPLETION HANDLERS
+        // ==========================================
+
+        btnCompleteStop.setOnClickListener {
+            // FIX: Explicitly activate route session on manual actions so stacking kicks in
+            RouteStackEngine.activateRouteSession("manual_anchor_override")
+
+            StackrAccessibilityService.lastLogMessage = RouteStackEngine.currentLog
+            StackrOverlayManager.refreshPill()
+            refreshUi()
+        }
+
+        btnResetRoute.setOnClickListener {
+            RouteStackEngine.resetRoute()
+            // simStep = 0 // Uncomment if tracking simulation steps
+            StackrAccessibilityService.lastLogMessage = "Route cleared • Ready"
+            StackrOverlayManager.refreshPill()
+            refreshUi()
+        }
+
+        btnSimulatePing.setOnClickListener {
+            // Optional manual test trigger for simulation
+            RouteStackEngine.activateRouteSession("simulated_ping")
+            refreshUi()
+        }
+    }
+
+    private fun openOverlayPermissionSettings() {
+        val intent = Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            android.net.Uri.parse("package:$packageName")
+        )
+        startActivity(intent)
+    }
+
+    private fun refreshUi() {
+        // Update your text views and status displays here
+        routeSummaryText.text = if (RouteStackEngine.isRouteActive) "Route Active" else "No Active Route"
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshUi()
+    }
+}
+   if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                       ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 101)
                       return
                   }
