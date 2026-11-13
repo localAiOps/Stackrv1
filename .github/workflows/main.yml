@@ -41,8 +41,7 @@ jobs:
               "app/src/main/res/layout",
               "app/src/main/res/values",
               "app/src/main/res/xml",
-          ]
-          for d in dirs:
+          }
               os.makedirs(d, exist_ok=True)
 
           files = {}
