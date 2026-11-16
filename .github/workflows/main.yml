@@ -76,8 +76,8 @@ jobs:
                   applicationId = "com.builttoearn.stackr"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 5
-                  versionName = "2.3-flex-route"
+                  versionCode = 6
+                  versionName = "2.3.1-perf-fixes"
               }
 
               buildTypes {
@@ -1786,25 +1786,36 @@ jobs:
                   return SimStats(totalMiles, totalMins, effectiveSlack, effectiveSlack >= slaSafetyBufferMins)
               }
 
-              private fun isValidTopology(seq: List<Waypoint>): Boolean {
-                  val pendingPickups = seq.filter { it.stopType == "PICKUP" }.map { it.orderId }.toSet()
+              // v2.3.1 PERF: lazy backtracking over stop orderings. Yields
+              // only sequences where every dropoff comes after its own
+              // pickup, pruning an invalid branch the moment a dropoff
+              // precedes its pickup. The old permutations() built the
+              // FULL list first — 8 stops = 40,320 lists in memory at
+              // once before any filtering ran. This streams one valid
+              // sequence at a time and never materializes the list.
+              private fun validSequences(stops: List<Waypoint>): Sequence<List<Waypoint>> = sequence {
+                  val used = BooleanArray(stops.size)
                   val pickedUp = mutableSetOf<String>()
-                  for (wp in seq) {
-                      if (wp.stopType == "PICKUP") pickedUp.add(wp.orderId)
-                      else if (wp.stopType == "DROPOFF" && wp.orderId in pendingPickups && wp.orderId !in pickedUp) return false
+                  val current = ArrayList<Waypoint>(stops.size)
+                  suspend fun SequenceScope<List<Waypoint>>.dfs() {
+                      if (current.size == stops.size) {
+                          yield(ArrayList(current))
+                          return
+                      }
+                      for (i in stops.indices) {
+                          if (used[i]) continue
+                          val wp = stops[i]
+                          if (wp.stopType == "DROPOFF" && wp.orderId !in pickedUp) continue
+                          used[i] = true
+                          current.add(wp)
+                          if (wp.stopType == "PICKUP") pickedUp.add(wp.orderId)
+                          dfs()
+                          if (wp.stopType == "PICKUP") pickedUp.remove(wp.orderId)
+                          current.removeAt(current.size - 1)
+                          used[i] = false
+                      }
                   }
-                  return true
-              }
-
-              private fun <T> permutations(items: List<T>): List<List<T>> {
-                  if (items.size <= 1) return listOf(items)
-                  val result = mutableListOf<List<T>>()
-                  for (i in items.indices) {
-                      val elem = items[i]
-                      val rest = items.filterIndexed { idx, _ -> idx != i }
-                      for (perm in permutations(rest)) result.add(listOf(elem) + perm)
-                  }
-                  return result
+                  dfs()
               }
 
               fun evaluateRawScreenText(rawText: String, packageName: String, nowMs: Long = System.currentTimeMillis()): EvaluationResult? {
@@ -1896,6 +1907,11 @@ jobs:
                           pendingCandidateOrderId = orderId
                           pendingCandidateStops = candidateSeq
                       }
+                      // INTENTIONAL, Nov 13 (driver's call): the first order
+                      // of a route is NEVER auto-accepted — verdict-only STACK
+                      // with the green "I ACCEPTED IT" button for 12s. Only
+                      // add-ons to a live route may auto-accept. Do not
+                      // change this to passes && autoAcceptEnabled.
                       val autoAccept = false
                       val reason = if (passes) {
                           if (isGuardActive()) String.format(Locale.US, "$%.2f/mi • $%.0f/hr (Anchor • RATE GUARD floors $%.2f/mi • $%.0f/hr)", perMile, perHour, effAnchorMile, effAnchorHour)
@@ -1955,12 +1971,39 @@ jobs:
                       )
                   }
 
+                  // v2.3.1 PERF: hard cap of 3 active orders. The old
+                  // optimizer enumerated every permutation of all stops,
+                  // so a 4th order (8 stops) meant 40,320 sequences.
+                  // With the lazy pruned generator below, 3 orders is
+                  // still the safe bound for on-phone evaluation.
+                  if (activeOrderCount() >= 3) {
+                      return EvaluationResult(
+                          verdict = "SKIP",
+                          mode = "ORDER_LIMIT",
+                          autoAccept = false,
+                          orderId = orderId,
+                          payout = payout,
+                          metricPerMile = 0.0,
+                          metricPerHour = 0.0,
+                          slaBufferMins = 0.0,
+                          reason = "Route already has 3 active orders — finish or drop one before stacking more",
+                          ttsSpeech = "Skip. Route already has three orders.",
+                          wazeNavUrl = "",
+                          optimizedStops = activeWaypoints.map { "${it.stopType}: ${it.label}" },
+                          platform = platform,
+                          guardActive = isGuardActive(),
+                          guardBadge = guardBadgeText(),
+                          appBadge = appBadge(platform),
+                          isCrossApp = isCrossAppCandidate(platform),
+                      flexBadge = flexBadgeText(),
+                      )
+                  }
+
                   val allStops = activeWaypoints + listOf(newPickup, newDropoff)
                   var bestEval: SimStats? = null
                   var bestSeq: List<Waypoint>? = null
 
-                  for (seq in permutations(allStops)) {
-                      if (!isValidTopology(seq)) continue
+                  for (seq in validSequences(allStops)) {
                       val sim = simulateSequence(seq, nowMs)
                       if (!sim.slaSafe) continue
                       if (bestEval == null || sim.totalMins < bestEval.totalMins) {
@@ -2490,6 +2533,7 @@ jobs:
               private var ttsReady = false
               private var lastEvaluatedHash = 0
               private var lastEvaluatedTimeMs = 0L
+              private var lastTraverseTimeMs = 0L
               private var lastSpokenKey = ""
               private var lastSpokenTimeMs = 0L
               private var lastDeclineKey = ""
@@ -2537,8 +2581,20 @@ jobs:
               }
 
               override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-                  val root = rootInActiveWindow ?: return
                   val pkg = event?.packageName?.toString() ?: return
+                  // v2.3.1 PERF: the OS config already limits this service
+                  // to the three driver apps — check again here so a stray
+                  // event can never trigger a tree walk.
+                  if (pkg != "com.doordash.driverapp" && pkg != "com.grubhub.driver" && pkg != "com.ubercab.driver") return
+                  // v2.3.1 PERF: throttle the tree walk to once per 500ms.
+                  // typeWindowContentChanged fires dozens of times a second
+                  // (map pans, timers, animations) and every event used to
+                  // walk the whole UI tree. Offer screens sit for seconds,
+                  // so 500ms loses nothing.
+                  val now = System.currentTimeMillis()
+                  if (now - lastTraverseTimeMs < 500L) return
+                  lastTraverseTimeMs = now
+                  val root = rootInActiveWindow ?: return
                   val collectedText = StringBuilder()
                   var hasAcceptButton = false
                   var isStopCompletionScreen = false
@@ -2557,7 +2613,6 @@ jobs:
 
                   traverse(root)
                   val fullText = collectedText.toString().trim()
-                  val now = System.currentTimeMillis()
 
                   if (hasAcceptButton && fullText.contains("$") && !RouteStackEngine.isPaused) {
                       val hash = fullText.hashCode()
@@ -2714,7 +2769,11 @@ jobs:
                       .build()
                   startForeground(101, notification)
                   fused = LocationServices.getFusedLocationProviderClient(this)
-                  val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000L)
+                  // v2.3.1 PERF: 15s fixes instead of 5s. The engine ignores
+                  // moves under 10m and drops fixes under 0.006 mi anyway,
+                  // so 5s polling only burned battery. Accuracy stays HIGH
+                  // because mileage math needs real fixes.
+                  val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 15000L)
                       .setMinUpdateDistanceMeters(10f)
                       .build()
                   callback = object : LocationCallback() {
