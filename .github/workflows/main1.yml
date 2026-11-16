@@ -76,8 +76,8 @@ jobs:
                   applicationId = "com.builttoearn.stackr"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 4
-                  versionName = "2.2-mileage-maps-voice"
+                  versionCode = 5
+                  versionName = "2.3-flex-route"
               }
 
               buildTypes {
@@ -836,11 +836,210 @@ jobs:
                       </LinearLayout>
                   </LinearLayout>
                   <Button
+                      android:id="@+id/btnPause"
+                      android:layout_width="match_parent"
+                      android:layout_height="48dp"
+                      android:layout_marginBottom="12dp"
+                      android:backgroundTint="#FFCC4D"
+                      android:text="⏸ PAUSE STACKR"
+                      android:textColor="#1A1200"
+                      android:textStyle="bold" />
+                  <LinearLayout
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:background="#0F1520"
+                      android:orientation="vertical"
+                      android:padding="14dp"
+                      android:layout_marginBottom="12dp">
+                      <TextView
+                          android:layout_width="match_parent"
+                          android:layout_height="wrap_content"
+                          android:text="AMAZON FLEX — ENTER YOUR BLOCK BY HAND"
+                          android:textColor="#19C37D"
+                          android:textSize="13sp"
+                          android:textStyle="bold" />
+                      <TextView
+                          android:layout_width="match_parent"
+                          android:layout_height="wrap_content"
+                          android:text="Flex blocks are picked in the Flex app — STACKR does not read it. Enter the block here and STACKR stacks DoorDash / GrubHub / Uber Eats offers around it. It never accepts or declines Flex."
+                          android:textColor="#BCD0EA"
+                          android:textSize="11.5sp"
+                          android:layout_marginTop="4dp" />
+                      <TextView
+                          android:id="@+id/flexStatusText"
+                          android:layout_width="match_parent"
+                          android:layout_height="wrap_content"
+                          android:text="No Flex block entered."
+                          android:textColor="#FFFFFF"
+                          android:textSize="12.5sp"
+                          android:textStyle="bold"
+                          android:layout_marginTop="8dp" />
+                      <EditText
+                          android:id="@+id/etFlexStation"
+                          android:layout_width="match_parent"
+                          android:layout_height="44dp"
+                          android:layout_marginTop="8dp"
+                          android:background="#1E2633"
+                          android:hint="Station — e.g. Lockbourne VOH3"
+                          android:textColor="#FFFFFF"
+                          android:textColorHint="#7A8AA5"
+                          android:textSize="13sp" />
+                      <LinearLayout
+                          android:layout_width="match_parent"
+                          android:layout_height="wrap_content"
+                          android:orientation="horizontal"
+                          android:layout_marginTop="8dp">
+                          <Button
+                              android:id="@+id/btnFlexVOH3"
+                              android:layout_width="0dp"
+                              android:layout_height="40dp"
+                              android:layout_weight="1"
+                              android:layout_marginEnd="4dp"
+                              android:backgroundTint="#1E2633"
+                              android:text="LOCKBOURNE VOH3"
+                              android:textColor="#FFFFFF"
+                              android:textSize="11sp" />
+                          <Button
+                              android:id="@+id/btnFlexUOH4"
+                              android:layout_width="0dp"
+                              android:layout_height="40dp"
+                              android:layout_weight="1"
+                              android:layout_marginStart="4dp"
+                              android:layout_marginEnd="4dp"
+                              android:backgroundTint="#1E2633"
+                              android:text="COLUMBUS UOH4"
+                              android:textColor="#FFFFFF"
+                              android:textSize="11sp" />
+                          <Button
+                              android:id="@+id/btnFlexStationHere"
+                              android:layout_width="0dp"
+                              android:layout_height="40dp"
+                              android:layout_weight="1"
+                              android:layout_marginStart="4dp"
+                              android:backgroundTint="#1E2633"
+                              android:text="SET STATION HERE"
+                              android:textColor="#FFFFFF"
+                              android:textSize="11sp" />
+                      </LinearLayout>
+                      <LinearLayout
+                          android:layout_width="match_parent"
+                          android:layout_height="wrap_content"
+                          android:orientation="horizontal"
+                          android:layout_marginTop="8dp">
+                          <EditText
+                              android:id="@+id/etFlexStart"
+                              android:layout_width="0dp"
+                              android:layout_height="44dp"
+                              android:layout_weight="1"
+                              android:layout_marginEnd="4dp"
+                              android:background="#1E2633"
+                              android:hint="Start — 2:15 PM"
+                              android:textColor="#FFFFFF"
+                              android:textColorHint="#7A8AA5"
+                              android:textSize="13sp" />
+                          <EditText
+                              android:id="@+id/etFlexEnd"
+                              android:layout_width="0dp"
+                              android:layout_height="44dp"
+                              android:layout_weight="1"
+                              android:layout_marginStart="4dp"
+                              android:background="#1E2633"
+                              android:hint="End — 5:15 PM"
+                              android:textColor="#FFFFFF"
+                              android:textColorHint="#7A8AA5"
+                              android:textSize="13sp" />
+                          <EditText
+                              android:id="@+id/etFlexPay"
+                              android:layout_width="0dp"
+                              android:layout_height="44dp"
+                              android:layout_weight="1"
+                              android:layout_marginStart="4dp"
+                              android:background="#1E2633"
+                              android:hint="Pay $"
+                              android:inputType="numberDecimal"
+                              android:textColor="#FFFFFF"
+                              android:textColorHint="#7A8AA5"
+                              android:textSize="13sp" />
+                      </LinearLayout>
+                      <LinearLayout
+                          android:layout_width="match_parent"
+                          android:layout_height="wrap_content"
+                          android:orientation="horizontal"
+                          android:layout_marginTop="8dp">
+                          <Button
+                              android:id="@+id/btnStartFlex"
+                              android:layout_width="0dp"
+                              android:layout_height="44dp"
+                              android:layout_weight="1"
+                              android:layout_marginEnd="4dp"
+                              android:backgroundTint="#19C37D"
+                              android:text="START FLEX ROUTE"
+                              android:textColor="#05110C" />
+                          <Button
+                              android:id="@+id/btnFlexDone"
+                              android:layout_width="0dp"
+                              android:layout_height="44dp"
+                              android:layout_weight="1"
+                              android:layout_marginStart="4dp"
+                              android:backgroundTint="#1E2633"
+                              android:text="FLEX DONE"
+                              android:textColor="#FFFFFF" />
+                          <Button
+                              android:id="@+id/btnEndReturn"
+                              android:layout_width="0dp"
+                              android:layout_height="44dp"
+                              android:layout_weight="1"
+                              android:layout_marginStart="4dp"
+                              android:backgroundTint="#1E2633"
+                              android:text="END RETURN"
+                              android:textColor="#FFFFFF" />
+                      </LinearLayout>
+                      <TextView
+                          android:id="@+id/homeStatusText"
+                          android:layout_width="match_parent"
+                          android:layout_height="wrap_content"
+                          android:text="Home not set."
+                          android:textColor="#BCD0EA"
+                          android:textSize="12.5sp"
+                          android:layout_marginTop="12dp" />
+                      <LinearLayout
+                          android:layout_width="match_parent"
+                          android:layout_height="wrap_content"
+                          android:orientation="horizontal"
+                          android:layout_marginTop="8dp">
+                          <EditText
+                              android:id="@+id/etHomeAddress"
+                              android:layout_width="0dp"
+                              android:layout_height="44dp"
+                              android:layout_weight="1"
+                              android:layout_marginEnd="6dp"
+                              android:background="#1E2633"
+                              android:hint="Home address (optional)"
+                              android:textColor="#FFFFFF"
+                              android:textColorHint="#7A8AA5"
+                              android:textSize="13sp" />
+                          <Button
+                              android:id="@+id/btnSetHome"
+                              android:layout_width="wrap_content"
+                              android:layout_height="44dp"
+                              android:backgroundTint="#1E2633"
+                              android:text="SET HOME HERE"
+                              android:textColor="#FFFFFF" />
+                      </LinearLayout>
+                      <Switch
+                          android:id="@+id/switchFinishHome"
+                          android:layout_width="match_parent"
+                          android:layout_height="wrap_content"
+                          android:layout_marginTop="10dp"
+                          android:text="Finish close to home"
+                          android:textColor="#FFFFFF" />
+                  </LinearLayout>
+                  <Button
                       android:id="@+id/btnSimulatePing"
                       android:layout_width="match_parent"
                       android:layout_height="48dp"
                       android:backgroundTint="#2F5AFF"
-                      android:text="TEST FLOATING OVERLAY PING (1 → 3)"
+                      android:text="TEST FLOATING OVERLAY PING (1 → 4)"
                       android:textColor="#FFFFFF"
                       android:textStyle="bold" />
               </LinearLayout>
@@ -886,7 +1085,8 @@ jobs:
               val guardActive: Boolean = false,
               val guardBadge: String = "",
               val appBadge: String = "",
-              val isCrossApp: Boolean = false
+              val isCrossApp: Boolean = false,
+              val flexBadge: String = ""
           )
 
           object RouteStackEngine {
@@ -1067,6 +1267,282 @@ jobs:
               var deadheadMode = false
               var isRouteActive = false
 
+              // --- FEATURE (v2.3): Amazon Flex route support ---
+              // Flex blocks are picked in the Flex app — STACKR does NOT
+              // read the Flex app. The driver enters the block by hand on
+              // the home screen. STACKR only stacks DoorDash / GrubHub /
+              // Uber Eats offers around it, and the Flex block itself is
+              // NEVER auto-accepted or declined by STACKR.
+              data class FlexBlock(
+                  val station: String,
+                  val stationLat: Double?,
+                  val stationLng: Double?,
+                  val startMs: Long,
+                  val endMs: Long,
+                  val pay: Double
+              )
+              var flexBlock: FlexBlock? = null
+              var isReturnMode = false
+              var homeLat: Double? = null
+              var homeLng: Double? = null
+              var homeLabel: String = ""
+              var finishCloseToHome = false
+              var isPaused = false
+              var flexPreBlockBufferMins = 15.0
+              var homeArrivalRadiusMeters = 100.0
+              // Lockbourne VOH3 Flex blocks run out of the Collings Dr
+              // area (6322 Collings Dr) — coords are approximate, tap
+              // "Set station here" at the station to pin exact GPS.
+              // UOH4 Columbus has no verified address on file, so its
+              // coords stay unset until the driver pins them or types
+              // an address that resolves to a known zone.
+              val flexStationPresets: Map<String, Pair<Double, Double>?> = mapOf(
+                  "Lockbourne VOH3" to Pair(39.8085, -82.9725),
+                  "Columbus UOH4" to null
+              )
+              var flexStationPinLat: Double? = null
+              var flexStationPinLng: Double? = null
+              private var flexWarnedForStartMs: Long = -1L
+
+              fun flexBadgeText(): String = when {
+                  isReturnMode -> "RETURN"
+                  flexBlock != null -> "FLEX"
+                  else -> ""
+              }
+
+              fun flexStationCoords(): Pair<Double, Double>? {
+                  flexStationPinLat?.let { la -> flexStationPinLng?.let { ln -> return Pair(la, ln) } }
+                  val block = flexBlock ?: return null
+                  return flexStationPresets[block.station]
+              }
+
+              fun flexStatusText(): String {
+                  val block = flexBlock
+                  return when {
+                      block == null && !isReturnMode -> "No Flex block entered. Enter your block below — STACKR stacks delivery offers around it."
+                      block != null -> {
+                          val fmt = java.text.SimpleDateFormat("h:mm a", Locale.US)
+                          val state = if (System.currentTimeMillis() < block.startMs) "starts soon" else if (System.currentTimeMillis() <= block.endMs) "BLOCK LIVE" else "block over"
+                          String.format(Locale.US, "FLEX %s • %s-%s • $%.2f • %s", block.station, fmt.format(java.util.Date(block.startMs)), fmt.format(java.util.Date(block.endMs)), block.pay, state)
+                      }
+                      else -> "RETURN MODE — looking for orders headed home."
+                  }
+              }
+
+              fun homeStatusText(): String {
+                  val la = homeLat
+                  val ln = homeLng
+                  return if (la == null || ln == null) "Home not set. Stand at home and tap SET HOME HERE, or type your address."
+                  else "Home: ${homeLabel.ifBlank { "set" }} (${String.format(Locale.US, "%.4f, %.4f", la, ln)})"
+              }
+
+              fun startFlexBlock(station: String, startMs: Long, endMs: Long, pay: Double) {
+                  val coords = flexStationPinLat?.let { la -> flexStationPinLng?.let { ln -> Pair(la, ln) } } ?: flexStationPresets[station]
+                  flexBlock = FlexBlock(station, coords?.first, coords?.second, startMs, endMs, pay)
+                  isReturnMode = false
+                  flexWarnedForStartMs = -1L
+                  isRouteActive = true
+                  routeMiles = 0.0
+                  completedRoutePay = 0.0
+                  announcedArrivals.clear()
+                  lastMileageLat = null
+                  lastMileageLng = null
+                  routeStartLat = driverLat
+                  routeStartLng = driverLng
+                  onRouteActiveChanged?.invoke(true)
+                  val mins = ((startMs - System.currentTimeMillis()) / 60_000L).coerceAtLeast(0L)
+                  fireRouteEvent("flex:start:${startMs}", "Flex block $station starts in $mins minutes. Head to $station.")
+              }
+
+              fun endFlexBlock() {
+                  val block = flexBlock ?: return
+                  flexBlock = null
+                  isReturnMode = true
+                  logTripIfAny("Flex")
+                  fireRouteEvent("flex:return:${block.endMs}", "Flex block done. Return trip mode. Looking for orders headed home.")
+                  onRouteActiveChanged?.invoke(true)
+              }
+
+              fun endReturnMode() {
+                  if (!isReturnMode) return
+                  isReturnMode = false
+                  logTripIfAny("Return")
+                  if (activeWaypoints.isEmpty()) {
+                      isRouteActive = false
+                      onRouteActiveChanged?.invoke(false)
+                  }
+              }
+
+              private fun logTripIfAny(appsLabel: String) {
+                  if (routeMiles <= 0.0 && completedRoutePay <= 0.0) return
+                  val today = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(java.util.Date())
+                  tripLog.add(TripEntry(today, appsLabel, routeMiles, completedRoutePay))
+                  if (tripLog.size > 30) tripLog.removeAt(0)
+                  appContext?.let { saveTripLog(it) }
+                  dayPay += completedRoutePay
+                  routeMiles = 0.0
+                  completedRoutePay = 0.0
+                  routeStartLat = null
+                  routeStartLng = null
+              }
+
+              fun setHome(lat: Double, lng: Double, label: String) {
+                  homeLat = lat
+                  homeLng = lng
+                  homeLabel = label
+                  appContext?.let { saveFlexPrefs(it) }
+              }
+
+              fun loadFlexPrefs(context: Context) {
+                  val prefs = context.getSharedPreferences("stackr_flex", Context.MODE_PRIVATE)
+                  if (prefs.contains("home_lat")) {
+                      homeLat = prefs.getFloat("home_lat", 0f).toDouble()
+                      homeLng = prefs.getFloat("home_lng", 0f).toDouble()
+                      homeLabel = prefs.getString("home_label", "") ?: ""
+                  }
+                  finishCloseToHome = prefs.getBoolean("finish_close_home", false)
+                  isPaused = prefs.getBoolean("paused", false)
+                  setAppContext(context)
+              }
+
+              fun saveFlexPrefs(context: Context) {
+                  val prefs = context.getSharedPreferences("stackr_flex", Context.MODE_PRIVATE)
+                  val editor = prefs.edit()
+                  val la = homeLat
+                  val ln = homeLng
+                  if (la != null && ln != null) {
+                      editor.putFloat("home_lat", la.toFloat())
+                      editor.putFloat("home_lng", ln.toFloat())
+                      editor.putString("home_label", homeLabel)
+                  }
+                  editor.putBoolean("finish_close_home", finishCloseToHome)
+                  editor.putBoolean("paused", isPaused)
+                  editor.apply()
+              }
+
+              fun setPaused(paused: Boolean, context: Context?) {
+                  isPaused = paused
+                  if (context != null) saveFlexPrefs(context)
+              }
+
+              // Called on every location update. Auto-switches to return
+              // mode when the block ends, and warns once 30 minutes before
+              // the block starts.
+              fun checkFlexTimers() {
+                  val block = flexBlock ?: return
+                  val now = System.currentTimeMillis()
+                  if (now >= block.endMs) {
+                      endFlexBlock()
+                      return
+                  }
+                  if (now >= block.startMs - 30L * 60_000L && now < block.startMs && flexWarnedForStartMs != block.startMs) {
+                      flexWarnedForStartMs = block.startMs
+                      val mins = ((block.startMs - now) / 60_000L).coerceAtLeast(1L)
+                      fireRouteEvent("flex:warn:${block.startMs}", "Flex block starts in $mins minutes, head to ${block.station}.")
+                  }
+              }
+
+              fun checkReturnArrival() {
+                  if (!isReturnMode) return
+                  val la = homeLat ?: return
+                  val ln = homeLng ?: return
+                  val distMeters = haversineMiles(driverLat, driverLng, la, ln) * 1609.34
+                  if (distMeters > homeArrivalRadiusMeters) return
+                  endReturnMode()
+                  fireRouteEvent("flex:home", "You are home. Return trip done.")
+              }
+
+              private fun flexGateResult(mode: String, reason: String, tts: String, orderId: String, payout: Double, platform: String, slaBuffer: Double): EvaluationResult {
+                  return EvaluationResult(
+                      verdict = "SKIP",
+                      mode = mode,
+                      autoAccept = false,
+                      orderId = orderId,
+                      payout = payout,
+                      metricPerMile = 0.0,
+                      metricPerHour = 0.0,
+                      slaBufferMins = slaBuffer,
+                      reason = reason,
+                      ttsSpeech = tts,
+                      wazeNavUrl = "",
+                      optimizedStops = activeWaypoints.map { "${it.stopType}: ${it.label}" },
+                      platform = platform,
+                      guardActive = isGuardActive(),
+                      guardBadge = guardBadgeText(),
+                      appBadge = appBadge(platform),
+                      isCrossApp = isCrossAppCandidate(platform),
+                      flexBadge = flexBadgeText(),
+                      flexBadge = flexBadgeText()
+                  )
+              }
+
+              // v2.3 Flex / return corridor gate. Returns a SKIP result when
+              // the candidate does not fit the active Flex block or return
+              // leg, or null when it passes. Runs BEFORE floor grading.
+              fun flexCorridorGate(dropoffLat: Double, dropoffLng: Double, totalMins: Double, orderId: String, payout: Double, platform: String, nowMs: Long): EvaluationResult? {
+                  val block = flexBlock
+                  if (block != null) {
+                      if (nowMs < block.startMs) {
+                          // BEFORE the block: the offer must finish at least
+                          // 15 minutes before block start, and end near the
+                          // station so he is never late to check-in.
+                          val finishMs = nowMs + (totalMins * 60_000.0).toLong()
+                          if (finishMs > block.startMs - (flexPreBlockBufferMins * 60_000.0).toLong()) {
+                              return flexGateResult("OFF_FLEX_ROUTE", "OFF FLEX ROUTE: finishes too close to block start — would risk being late to ${block.station} check-in", "Skip. That would make you late to your Flex block.", orderId, payout, platform, 0.0)
+                          }
+                          val coords = flexStationCoords()
+                          if (coords != null) {
+                              val distToStation = haversineMiles(dropoffLat, dropoffLng, coords.first, coords.second)
+                              if (distToStation > maxAreaGapMiles) {
+                                  return flexGateResult("OFF_FLEX_ROUTE", String.format(Locale.US, "OFF FLEX ROUTE: dropoff %.1f mi from ${block.station} — not on the way to the station", distToStation), "Skip. That heads away from your Flex station.", orderId, payout, platform, 0.0)
+                              }
+                          }
+                      } else {
+                          // DURING the block: pickup/dropoff must fall near
+                          // the station, the driver, or the live route —
+                          // the Flex delivery area itself is not visible to
+                          // STACKR, so proximity to those three is the test.
+                          val coords = flexStationCoords()
+                          val nearStation = coords != null && haversineMiles(dropoffLat, dropoffLng, coords.first, coords.second) <= maxAreaGapMiles
+                          val nearDriver = haversineMiles(dropoffLat, dropoffLng, driverLat, driverLng) <= maxAreaGapMiles
+                          val nearRoute = activeWaypoints.any { haversineMiles(dropoffLat, dropoffLng, it.lat, it.lng) <= maxAreaGapMiles }
+                          if (!nearStation && !nearDriver && !nearRoute) {
+                              return flexGateResult("OFF_FLEX_ROUTE", "OFF FLEX ROUTE: dropoff is outside the Flex area around ${block.station}", "Skip. That is outside your Flex area.", orderId, payout, platform, 0.0)
+                          }
+                      }
+                      return null
+                  }
+                  if (isReturnMode) {
+                      val la = homeLat
+                      val ln = homeLng
+                      if (la != null && ln != null) {
+                          val distHome = haversineMiles(dropoffLat, dropoffLng, la, ln)
+                          val driverToHome = haversineMiles(driverLat, driverLng, la, ln)
+                          // Heads toward home: ends near home, or ends
+                          // closer to home than the driver is right now.
+                          if (distHome > maxAreaGapMiles && distHome >= driverToHome) {
+                              return flexGateResult("OFF_RETURN", String.format(Locale.US, "Heads away from home: dropoff %.1f mi from home", distHome), "Skip. That heads away from home.", orderId, payout, platform, 0.0)
+                          }
+                      }
+                  }
+                  return null
+              }
+
+              // "Finish close to home": when ON, the route's last stop after
+              // adding this offer must end within 10 mi of home. Applies to
+              // ANY route, not just Flex return trips. No home set = no
+              // constraint (the toggle only bites once home is set).
+              fun finishCloseGate(lastLat: Double, lastLng: Double, orderId: String, payout: Double, platform: String): EvaluationResult? {
+                  if (!finishCloseToHome) return null
+                  val la = homeLat ?: return null
+                  val ln = homeLng ?: return null
+                  val distHome = haversineMiles(lastLat, lastLng, la, ln)
+                  if (distHome > maxAreaGapMiles) {
+                      return flexGateResult("ENDS_FAR_FROM_HOME", String.format(Locale.US, "ENDS FAR FROM HOME: route would end %.1f mi from home", distHome), "Skip. That order would leave you ending far from home.", orderId, payout, platform, 0.0)
+                  }
+                  return null
+              }
+
               // Call this whether automated or manual
               fun activateRouteSession(anchorId: String) {
                   isRouteActive = true
@@ -1102,7 +1578,9 @@ jobs:
                   "grove city" to Pair(39.8815, -83.0930),
                   "groveport" to Pair(39.8520, -82.8857),
                   "canal winchester" to Pair(39.8431, -82.8055),
-                  "new albany" to Pair(40.0812, -82.8088)
+                  "new albany" to Pair(40.0812, -82.8088),
+                  "lockbourne" to Pair(39.8085, -82.9725),
+                  "collings" to Pair(39.8085, -82.9725)
               )
 
               fun activeOrderCount(): Int = activeWaypoints.map { it.orderId }.distinct().size
@@ -1164,6 +1642,8 @@ jobs:
                       onMileageChanged?.invoke()
                   }
                   checkArrival()
+                  checkFlexTimers()
+                  checkReturnArrival()
               }
 
               // --- FEATURE 4 (v2.2): Arrival voice alert ---
@@ -1329,6 +1809,9 @@ jobs:
               }
 
               fun evaluateRawScreenText(rawText: String, packageName: String, nowMs: Long = System.currentTimeMillis()): EvaluationResult? {
+                  // v2.3 PAUSE: while paused, live offers are not evaluated
+                  // at all — no flash, no verdict, no accept/decline record.
+                  if (isPaused) return null
                   val clean = rawText.replace("\\s+".toRegex(), " ").trim()
                   val lower = clean.lowercase(Locale.US)
                   val platform = when {
@@ -1395,6 +1878,11 @@ jobs:
                   val newPickup = Waypoint("$orderId-P", orderId, platform, "PICKUP", pickupLabel, pLat, pLng, nowMs + (pickupDueMins * 60_000.0).toLong(), pickupDwellMins, payout = 0.0, orderName = pickupName, hasRealCoords = isKnownZone(pickupLabel))
                   val newDropoff = Waypoint("$orderId-D", orderId, platform, "DROPOFF", dropoffLabel, dLat, dLng, nowMs + (dropoffDueMins * 60_000.0).toLong(), dropoffDwellMins, payout, orderName = dropoffName, hasRealCoords = isKnownZone(dropoffLabel))
 
+                  // v2.3: Flex / return corridor gate and Finish-close-to-home
+                  // gate run BEFORE floor grading, on the anchor path too.
+                  flexCorridorGate(newDropoff.lat, newDropoff.lng, estMins, orderId, payout, platform, nowMs)?.let { return it }
+                  finishCloseGate(newDropoff.lat, newDropoff.lng, orderId, payout, platform)?.let { return it }
+
                   if (activeWaypoints.isEmpty()) {
                       val effMiles = if (deadheadMode) estMiles * 2.0 else estMiles
                       val returnMins = (estMiles / deadheadReturnMph) * 60.0
@@ -1437,6 +1925,7 @@ jobs:
                           guardBadge = guardBadgeText(),
                           appBadge = appBadge(platform),
                           isCrossApp = isCrossAppCandidate(platform),
+                      flexBadge = flexBadgeText(),
                       )
                   }
 
@@ -1462,7 +1951,8 @@ jobs:
                           guardActive = isGuardActive(),
                           guardBadge = guardBadgeText(),
                           appBadge = appBadge(platform),
-                          isCrossApp = true
+                          isCrossApp = true,
+                      flexBadge = flexBadgeText(),
                       )
                   }
 
@@ -1499,8 +1989,15 @@ jobs:
                           guardBadge = guardBadgeText(),
                           appBadge = appBadge(platform),
                           isCrossApp = isCrossAppCandidate(platform),
+                      flexBadge = flexBadgeText(),
                       )
                   }
+
+                  // v2.3: Flex / return corridor gate, then Finish-close-to-home
+                  // (the route's last stop after adding must end near home).
+                  flexCorridorGate(newDropoff.lat, newDropoff.lng, bestEval.totalMins, orderId, payout, platform, nowMs)?.let { return it }
+                  val routeEndAfterAdd = bestSeq.last()
+                  finishCloseGate(routeEndAfterAdd.lat, routeEndAfterAdd.lng, orderId, payout, platform)?.let { return it }
 
                   var marginalMiles = max(0.15, bestEval.totalMiles - baseline.totalMiles)
                   // v2.2: calibrate the estimate with real driven miles — the
@@ -1532,6 +2029,7 @@ jobs:
                           guardBadge = guardBadgeText(),
                           appBadge = appBadge(platform),
                           isCrossApp = isCrossAppCandidate(platform),
+                      flexBadge = flexBadgeText(),
                       )
                   }
                   val nearestStopMiles = activeWaypoints.minOfOrNull { haversineMiles(newDropoff.lat, newDropoff.lng, it.lat, it.lng) } ?: 0.0
@@ -1554,6 +2052,7 @@ jobs:
                           guardBadge = guardBadgeText(),
                           appBadge = appBadge(platform),
                           isCrossApp = isCrossAppCandidate(platform),
+                      flexBadge = flexBadgeText(),
                       )
                   }
                   val margPerMile = payout / marginalMiles
@@ -1592,6 +2091,7 @@ jobs:
                       guardBadge = guardBadgeText(),
                       appBadge = appBadge(platform),
                       isCrossApp = isCrossAppCandidate(platform),
+                      flexBadge = flexBadgeText(),
                   )
               }
 
@@ -1643,6 +2143,13 @@ jobs:
                   announcedArrivals.remove(done.stopId)
                   if (done.stopType == "DROPOFF") completedRoutePay += done.payout
                   if (activeWaypoints.isEmpty()) {
+                      // v2.3: a live Flex block or return leg means the
+                      // route is NOT over — mileage keeps running and the
+                      // trip is logged when the block / return actually ends.
+                      if (flexBlock != null || isReturnMode) {
+                          val tail = if (flexBlock != null) "Flex block still active." else "Return trip still going."
+                          return "Completed ${done.stopType}: ${done.label}. $tail"
+                      }
                       isRouteActive = false
                       dayPay += completedRoutePay
                       val today = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(java.util.Date())
@@ -1662,7 +2169,9 @@ jobs:
 
               fun resetRoute() {
                   activeWaypoints.clear()
-                  isRouteActive = false
+                  // v2.3: a Flex block / return leg survives a route reset —
+                  // mileage keeps running until the block or return ends.
+                  isRouteActive = flexBlock != null || isReturnMode
                   pendingCandidateStops = null
                   pendingCandidateOrderId = null
                   routeMiles = 0.0
@@ -1790,7 +2299,11 @@ jobs:
                               val dy = abs(event.rawY - initialTouchY)
                               val elapsed = System.currentTimeMillis() - touchDownTime
                               if (dx < 14f && dy < 14f) {
-                                  if (elapsed >= 450L) {
+                                  if (RouteStackEngine.isPaused) {
+                                      RouteStackEngine.setPaused(false, appCtx)
+                                      refreshPill()
+                                      onUserInteractionCallback?.invoke("STACKR live — grading offers")
+                                  } else if (elapsed >= 450L) {
                                       RouteStackEngine.autoAcceptEnabled = !RouteStackEngine.autoAcceptEnabled
                                       refreshPill()
                                       onUserInteractionCallback?.invoke(if (RouteStackEngine.autoAcceptEnabled) "Auto-Accept enabled" else "Co-Pilot mode")
@@ -1817,6 +2330,13 @@ jobs:
                       val dot = view.findViewById<TextView>(R.id.overlayDot)
                       val title = view.findViewById<TextView>(R.id.overlayPillTitle)
                       val sub = view.findViewById<TextView>(R.id.overlayPillSub)
+
+                      if (RouteStackEngine.isPaused) {
+                          dot.setTextColor(0xFFFFCC4D.toInt())
+                          title.text = "STACKR • PAUSED"
+                          sub.text = "Tap pill to resume"
+                          return@post
+                      }
 
                       if (RouteStackEngine.activeWaypoints.isNotEmpty()) {
                           val nextStop = RouteStackEngine.activeWaypoints.first()
@@ -1856,7 +2376,7 @@ jobs:
                       flashContainer.setBackgroundResource(if (isStack) R.drawable.bg_flash_stack else R.drawable.bg_flash_skip)
                       flashTitle.setTextColor(if (isStack) 0xFF19C37D.toInt() else 0xFFFF4D4F.toInt())
                       flashTitle.text = String.format(Locale.US, "%s • $%.2f", result.verdict, result.payout)
-                      flashBadge.text = result.mode + if (result.appBadge.isNotEmpty()) " • " + result.appBadge else ""
+                      flashBadge.text = result.mode + (if (result.flexBadge.isNotEmpty()) " • " + result.flexBadge else "") + (if (result.appBadge.isNotEmpty()) " • " + result.appBadge else "")
                       val guardBadgeView = view.findViewById<TextView>(R.id.flashGuardBadge)
                       if (result.guardActive) {
                           guardBadgeView.visibility = View.VISIBLE
@@ -1989,6 +2509,7 @@ jobs:
                   RouteStackEngine.onAcceptanceCountsChanged = { RouteStackEngine.saveAcceptanceCounts(this) }
                   RouteStackEngine.setAppContext(this)
                   RouteStackEngine.loadTripLog(this)
+                  RouteStackEngine.loadFlexPrefs(this)
                   RouteStackEngine.onRouteEvent = { msg ->
                       speak(msg)
                       lastLogMessage = msg
@@ -2039,7 +2560,7 @@ jobs:
                   val fullText = collectedText.toString().trim()
                   val now = System.currentTimeMillis()
 
-                  if (hasAcceptButton && fullText.contains("$")) {
+                  if (hasAcceptButton && fullText.contains("$") && !RouteStackEngine.isPaused) {
                       val hash = fullText.hashCode()
                       if (hash == lastEvaluatedHash && (now - lastEvaluatedTimeMs) < 12_000L) return
                       lastEvaluatedHash = hash
@@ -2245,6 +2766,7 @@ jobs:
           import android.provider.Settings
           import android.speech.tts.TextToSpeech
           import android.widget.Button
+          import android.widget.EditText
           import android.widget.SeekBar
           import android.widget.Switch
           import android.widget.TextView
@@ -2282,6 +2804,16 @@ jobs:
               private lateinit var mileageText: TextView
               private lateinit var btnNavApp: Button
               private lateinit var btnNavigateNext: Button
+              private lateinit var flexStatusText: TextView
+              private lateinit var homeStatusText: TextView
+              private lateinit var etFlexStation: EditText
+              private lateinit var etFlexStart: EditText
+              private lateinit var etFlexEnd: EditText
+              private lateinit var etFlexPay: EditText
+              private lateinit var etHomeAddress: EditText
+              private lateinit var switchFinishHome: Switch
+              private lateinit var btnPause: Button
+              private var pendingFlexStation: String = "Lockbourne VOH3"
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
@@ -2293,6 +2825,7 @@ jobs:
                   }
                   RouteStackEngine.setAppContext(this)
                   RouteStackEngine.loadTripLog(this)
+                  RouteStackEngine.loadFlexPrefs(this)
                   val navPrefs = getSharedPreferences("stackr_nav", MODE_PRIVATE)
                   RouteStackEngine.navApp = navPrefs.getString("nav_app", "Google Maps") ?: "Google Maps"
                   localTts = TextToSpeech(this, this)
@@ -2334,6 +2867,101 @@ jobs:
                   val btnCompleteStop = findViewById<Button>(R.id.btnCompleteStop)
                   val btnResetRoute = findViewById<Button>(R.id.btnResetRoute)
                   val btnSimulatePing = findViewById<Button>(R.id.btnSimulatePing)
+                  flexStatusText = findViewById(R.id.flexStatusText)
+                  homeStatusText = findViewById(R.id.homeStatusText)
+                  etFlexStation = findViewById(R.id.etFlexStation)
+                  etFlexStart = findViewById(R.id.etFlexStart)
+                  etFlexEnd = findViewById(R.id.etFlexEnd)
+                  etFlexPay = findViewById(R.id.etFlexPay)
+                  etHomeAddress = findViewById(R.id.etHomeAddress)
+                  switchFinishHome = findViewById(R.id.switchFinishHome)
+                  btnPause = findViewById(R.id.btnPause)
+                  val btnFlexVOH3 = findViewById<Button>(R.id.btnFlexVOH3)
+                  val btnFlexUOH4 = findViewById<Button>(R.id.btnFlexUOH4)
+                  val btnFlexStationHere = findViewById<Button>(R.id.btnFlexStationHere)
+                  val btnStartFlex = findViewById<Button>(R.id.btnStartFlex)
+                  val btnFlexDone = findViewById<Button>(R.id.btnFlexDone)
+                  val btnEndReturn = findViewById<Button>(R.id.btnEndReturn)
+                  val btnSetHome = findViewById<Button>(R.id.btnSetHome)
+
+                  etFlexStation.setText(pendingFlexStation)
+                  switchFinishHome.isChecked = RouteStackEngine.finishCloseToHome
+
+                  btnFlexVOH3.setOnClickListener { pendingFlexStation = "Lockbourne VOH3"; etFlexStation.setText(pendingFlexStation); refreshUi() }
+                  btnFlexUOH4.setOnClickListener { pendingFlexStation = "Columbus UOH4"; etFlexStation.setText(pendingFlexStation); refreshUi() }
+                  btnFlexStationHere.setOnClickListener {
+                      RouteStackEngine.flexStationPinLat = RouteStackEngine.driverLat
+                      RouteStackEngine.flexStationPinLng = RouteStackEngine.driverLng
+                      StackrAccessibilityService.lastLogMessage = "Flex station pinned at your current location."
+                      refreshUi()
+                  }
+
+                  btnStartFlex.setOnClickListener {
+                      val station = etFlexStation.text.toString().trim().ifBlank { pendingFlexStation }
+                      val startMs = parseBlockTime(etFlexStart.text.toString().trim())
+                      val endMs = parseBlockTime(etFlexEnd.text.toString().trim())
+                      val pay = etFlexPay.text.toString().trim().toDoubleOrNull()
+                      if (startMs == null || endMs == null || endMs <= startMs || pay == null) {
+                          StackrAccessibilityService.lastLogMessage = "Flex block needs a station, start/end times like 2:15 PM, and a pay amount."
+                          refreshUi()
+                          return@setOnClickListener
+                      }
+                      pendingFlexStation = station
+                      RouteStackEngine.startFlexBlock(station, startMs, endMs, pay)
+                      StackrAccessibilityService.lastLogMessage = "Flex block entered: $station."
+                      StackrOverlayManager.refreshPill()
+                      refreshUi()
+                  }
+
+                  btnFlexDone.setOnClickListener {
+                      RouteStackEngine.endFlexBlock()
+                      StackrAccessibilityService.lastLogMessage = "Flex block done — return mode on."
+                      StackrOverlayManager.refreshPill()
+                      refreshUi()
+                  }
+
+                  btnEndReturn.setOnClickListener {
+                      RouteStackEngine.endReturnMode()
+                      localTts?.speak("Return trip done.", TextToSpeech.QUEUE_FLUSH, null, "FLEX")
+                      StackrAccessibilityService.lastLogMessage = "Return trip done."
+                      StackrOverlayManager.refreshPill()
+                      refreshUi()
+                  }
+
+                  btnSetHome.setOnClickListener {
+                      val typed = etHomeAddress.text.toString().trim()
+                      if (typed.isNotBlank()) {
+                          if (RouteStackEngine.isKnownZone(typed)) {
+                              val (hLat, hLng) = RouteStackEngine.resolveCoords(typed, RouteStackEngine.driverLat, RouteStackEngine.driverLng)
+                              RouteStackEngine.setHome(hLat, hLng, typed)
+                              RouteStackEngine.saveFlexPrefs(this)
+                              StackrAccessibilityService.lastLogMessage = "Home set to $typed."
+                          } else {
+                              StackrAccessibilityService.lastLogMessage = "Address not recognized — stand at home and tap SET HOME HERE."
+                          }
+                      } else {
+                          RouteStackEngine.setHome(RouteStackEngine.driverLat, RouteStackEngine.driverLng, "Home")
+                          RouteStackEngine.saveFlexPrefs(this)
+                          StackrAccessibilityService.lastLogMessage = "Home set to your current location."
+                      }
+                      refreshUi()
+                  }
+
+                  switchFinishHome.setOnCheckedChangeListener { _, isChecked ->
+                      RouteStackEngine.finishCloseToHome = isChecked
+                      RouteStackEngine.saveFlexPrefs(this)
+                      if (isChecked) localTts?.speak("Finish close to home is on — only stacking orders that end near home.", TextToSpeech.QUEUE_FLUSH, null, "FLEX")
+                      refreshUi()
+                  }
+
+                  btnPause.setOnClickListener {
+                      val nowPaused = !RouteStackEngine.isPaused
+                      RouteStackEngine.setPaused(nowPaused, this)
+                      localTts?.speak(if (nowPaused) "STACKR paused — no offers will be graded." else "STACKR live — grading offers.", TextToSpeech.QUEUE_FLUSH, null, "PAUSE")
+                      StackrAccessibilityService.lastLogMessage = if (nowPaused) "STACKR paused — no offers will be graded." else "STACKR live — grading offers."
+                      StackrOverlayManager.refreshPill()
+                      refreshUi()
+                  }
 
                   switchOverlay.isChecked = StackrOverlayManager.isOverlayEnabled
                   switchAutoAccept.isChecked = RouteStackEngine.autoAcceptEnabled
@@ -2469,10 +3097,12 @@ jobs:
               }
 
               private fun runNextSimulationPing() {
-                  simStep = (simStep % 3) + 1
+                  simStep = (simStep % 4) + 1
                   when (simStep) {
                       1 -> {
                           RouteStackEngine.resetRoute()
+                          RouteStackEngine.flexBlock = null
+                          RouteStackEngine.isReturnMode = false
                           RouteStackEngine.driverLat = 39.9612
                           RouteStackEngine.driverLng = -82.9988
                           val res = RouteStackEngine.evaluateStructuredOffer("DoorDash", 22.50, 11.2, 22.0, "Short North", "Westerville", 14.0, 42.0)
@@ -2509,8 +3139,49 @@ jobs:
                           localTts?.speak(res.ttsSpeech, TextToSpeech.QUEUE_FLUSH, null, "SIM")
                           StackrOverlayManager.showVerdictFlash(this, res, null)
                       }
+                      4 -> {
+                          // SIM 4: Flex pre-block stack — Lockbourne block starts in 2h;
+                          // a DoorDash offer ending at Lockbourne before the block stacks with a FLEX badge.
+                          RouteStackEngine.resetRoute()
+                          RouteStackEngine.flexBlock = null
+                          RouteStackEngine.isReturnMode = false
+                          RouteStackEngine.driverLat = 39.9612
+                          RouteStackEngine.driverLng = -82.9988
+                          val nowMs = System.currentTimeMillis()
+                          RouteStackEngine.startFlexBlock("Lockbourne VOH3", nowMs + 120L * 60_000L, nowMs + 300L * 60_000L, 96.00)
+                          val res = RouteStackEngine.evaluateStructuredOffer("DoorDash", 12.00, 6.0, 15.0, "Short North", "Lockbourne", 14.0, 38.0)
+                          StackrAccessibilityService.lastLogMessage = "[SIM 4: ${res.verdict}] ${res.reason}"
+                          localTts?.speak(res.ttsSpeech, TextToSpeech.QUEUE_FLUSH, null, "SIM")
+                          StackrOverlayManager.showVerdictFlash(this, res, onConfirmAutoAccept = {
+                              RouteStackEngine.commitPendingCandidate(res.orderId)
+                              runOnUiThread { refreshUi() }
+                          }, onManualConfirm = {
+                              RouteStackEngine.commitPendingCandidate(res.orderId)
+                              runOnUiThread { refreshUi() }
+                          })
+                      }
                   }
                   refreshUi()
+              }
+
+              private fun parseBlockTime(text: String): Long? {
+                  if (text.isBlank()) return null
+                  for (pattern in listOf("h:mm a", "HH:mm", "h:mm")) {
+                      try {
+                          val sdf = java.text.SimpleDateFormat(pattern, Locale.US)
+                          sdf.isLenient = false
+                          val parsed = sdf.parse(text) ?: continue
+                          val cal = java.util.Calendar.getInstance()
+                          val tcal = java.util.Calendar.getInstance()
+                          tcal.time = parsed
+                          cal.set(java.util.Calendar.HOUR_OF_DAY, tcal.get(java.util.Calendar.HOUR_OF_DAY))
+                          cal.set(java.util.Calendar.MINUTE, tcal.get(java.util.Calendar.MINUTE))
+                          cal.set(java.util.Calendar.SECOND, 0)
+                          cal.set(java.util.Calendar.MILLISECOND, 0)
+                          return cal.timeInMillis
+                      } catch (_: Exception) {}
+                  }
+                  return null
               }
 
               private fun refreshUi() {
@@ -2526,6 +3197,10 @@ jobs:
                   acceptRateText.text = RouteStackEngine.acceptanceSummaryText()
                   mileageText.text = RouteStackEngine.mileageSummaryText()
                   btnNavApp.text = "NAV: " + RouteStackEngine.navApp.uppercase(Locale.US)
+                  flexStatusText.text = RouteStackEngine.flexStatusText()
+                  homeStatusText.text = RouteStackEngine.homeStatusText()
+                  btnPause.text = if (RouteStackEngine.isPaused) "▶ RESUME STACKR" else "⏸ PAUSE STACKR"
+                  if (switchFinishHome.isChecked != RouteStackEngine.finishCloseToHome) switchFinishHome.isChecked = RouteStackEngine.finishCloseToHome
                   btnNavigateNext.text = if (RouteStackEngine.navApp == "Waze") "NAVIGATE — NEXT STOP" else "NAVIGATE — ALL STOPS"
                   routeSummaryText.text = String.format(Locale.US, "Active Orders: %d • Apps: %s • Locked Corridor Pay: $%.2f", RouteStackEngine.activeOrderCount(), RouteStackEngine.routePlatforms().joinToString("+").ifEmpty { "—" }, RouteStackEngine.totalLockedPayout())
 
