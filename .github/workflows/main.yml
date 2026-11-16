@@ -76,8 +76,8 @@ jobs:
                   applicationId = "com.builttoearn.stackr"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 6
-                  versionName = "2.3.1-perf-fixes"
+                  versionCode = 7
+                  versionName = "2.3.2-ui-arch"
               }
 
               buildTypes {
@@ -103,6 +103,8 @@ jobs:
               implementation("androidx.appcompat:appcompat:1.7.0")
               implementation("com.google.android.material:material:1.12.0")
               implementation("com.google.android.gms:play-services-location:21.3.0")
+              implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
+              implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
           }
           '''
 
@@ -400,13 +402,6 @@ jobs:
                       android:text="STACKR."
                       android:textColor="#FFFFFF"
                       android:textSize="30sp"
-                      android:textStyle="bold" />
-                  <TextView
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:text="ESCALADE FLOATING CO-PILOT • COLUMBUS, OH"
-                      android:textColor="#7B8799"
-                      android:textSize="11sp"
                       android:textStyle="bold"
                       android:layout_marginBottom="14dp" />
                   <LinearLayout
@@ -2541,7 +2536,6 @@ jobs:
 
               companion object {
                   var isRunning = false
-                  var lastLogMessage = "Waiting for incoming offer behind Waze..."
                   var onStateUpdated: (() -> Unit)? = null
               }
 
@@ -2555,7 +2549,7 @@ jobs:
                   RouteStackEngine.loadFlexPrefs(this)
                   RouteStackEngine.onRouteEvent = { msg ->
                       speak(msg)
-                      lastLogMessage = msg
+                      StackrEvents.postLog(msg)
                       onStateUpdated?.invoke()
                   }
                   RouteStackEngine.onRouteActiveChanged = { active ->
@@ -2563,9 +2557,9 @@ jobs:
                   }
                   RouteStackEngine.onMileageChanged = { onStateUpdated?.invoke() }
                   tts = TextToSpeech(this, this)
-                  lastLogMessage = "Agent Active • Listening behind Waze"
+                  StackrEvents.postLog("Agent Active • Listening behind Waze")
                   StackrOverlayManager.onUserInteractionCallback = { msg ->
-                      lastLogMessage = msg
+                      StackrEvents.postLog(msg)
                       speak(msg)
                       onStateUpdated?.invoke()
                   }
@@ -2621,7 +2615,7 @@ jobs:
                       lastEvaluatedTimeMs = now
 
                       val result = RouteStackEngine.evaluateRawScreenText(fullText, pkg, now) ?: return
-                      lastLogMessage = "[${result.verdict}] ${result.reason}"
+                      StackrEvents.postLog("[${result.verdict}] ${result.reason}")
                       val spokenKey = "${result.verdict}|${result.payout}|${result.reason}"
                       if (spokenKey != lastSpokenKey || (now - lastSpokenTimeMs) > 60_000L) {
                           lastSpokenKey = spokenKey
@@ -2644,7 +2638,7 @@ jobs:
                                   RouteStackEngine.commitPendingCandidate(result.orderId)
                                   RouteStackEngine.recordAccept(result.platform)
                                   RouteStackEngine.checkGuardTransition()
-                                  lastLogMessage = "[AUTO-ACCEPTED] ${result.reason}"
+                                  StackrEvents.postLog("[AUTO-ACCEPTED] ${result.reason}")
                                   StackrOverlayManager.refreshPill()
                                   if (RouteStackEngine.autoLaunchWaze && result.wazeNavUrl.isNotEmpty()) launchNav(RouteStackEngine.navUrlForNext())
                               }
@@ -2657,7 +2651,7 @@ jobs:
                               RouteStackEngine.commitPendingCandidate(result.orderId)
                               RouteStackEngine.recordAccept(result.platform)
                               RouteStackEngine.checkGuardTransition()
-                              lastLogMessage = "[ROUTE STARTED] ${result.reason}"
+                              StackrEvents.postLog("[ROUTE STARTED] ${result.reason}")
                               StackrOverlayManager.refreshPill()
                               if (RouteStackEngine.autoLaunchWaze && result.wazeNavUrl.isNotEmpty()) launchNav(RouteStackEngine.navUrlForNext())
                               onStateUpdated?.invoke()
@@ -2674,7 +2668,7 @@ jobs:
                   if (isStopCompletionScreen && RouteStackEngine.activeWaypoints.isNotEmpty() && (now - lastCompletionTimeMs) > 15_000L) {
                       lastCompletionTimeMs = now
                       val msg = RouteStackEngine.completeNextStop()
-                      lastLogMessage = msg
+                      StackrEvents.postLog(msg)
                       speak(msg)
                       StackrOverlayManager.refreshPill()
                       val nextWp = RouteStackEngine.activeWaypoints.firstOrNull()
@@ -2812,6 +2806,33 @@ jobs:
           }
           '''
 
+          files["app/src/main/java/com/builttoearn/stackr/StackrEvents.kt"] = r'''package com.builttoearn.stackr
+
+          import kotlinx.coroutines.flow.MutableSharedFlow
+          import kotlinx.coroutines.flow.SharedFlow
+          import kotlinx.coroutines.flow.asSharedFlow
+
+          // v2.3.2 (#4): the log channel. The service, the engine callbacks
+          // and MainActivity used to pass the latest log line around as a
+          // static string (StackrAccessibilityService.lastLogMessage) — no
+          // delivery guarantee, overwrites, stale after the service dies.
+          // A SharedFlow with replay=1 keeps the latest line for any new
+          // collector and delivers every new line in order. No DI framework
+          // needed — one object, tryEmit is thread-safe from any thread.
+          object StackrEvents {
+              private val _log = MutableSharedFlow<String>(replay = 1, extraBufferCapacity = 32)
+              val log: SharedFlow<String> = _log.asSharedFlow()
+
+              init {
+                  _log.tryEmit("Waiting for incoming offer behind Waze...")
+              }
+
+              fun postLog(msg: String) {
+                  _log.tryEmit(msg)
+              }
+          }
+          '''
+
           files["app/src/main/java/com/builttoearn/stackr/MainActivity.kt"] = r'''package com.builttoearn.stackr
 
           import android.Manifest
@@ -2829,7 +2850,10 @@ jobs:
           import android.widget.Switch
           import android.widget.TextView
           import androidx.appcompat.app.AppCompatActivity
+          import androidx.activity.result.contract.ActivityResultContracts
           import androidx.core.app.ActivityCompat
+          import androidx.lifecycle.lifecycleScope
+          import kotlinx.coroutines.launch
           import java.util.Locale
 
           class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
@@ -2840,6 +2864,32 @@ jobs:
               private lateinit var stopsListText: TextView
               private var localTts: TextToSpeech? = null
               private var simStep = 0
+              // v2.3.2 (#1): the four switches are fields now so refreshUi()
+              // can re-sync them from engine state whenever the background
+              // service changes something — they used to be onCreate locals
+              // set once and never updated again.
+              private lateinit var switchOverlay: Switch
+              private lateinit var switchAutoAccept: Switch
+              private lateinit var switchWaze: Switch
+              private lateinit var switchDeadhead: Switch
+              private var overlayPermissionPending = false
+              // v2.3.2 (#2): overlay permission goes through a launcher so
+              // the result is observed. A deny reverts the switch instead
+              // of leaving it stuck On.
+              private val overlayPermissionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+                  overlayPermissionPending = false
+                  if (Settings.canDrawOverlays(this)) {
+                      StackrOverlayManager.isOverlayEnabled = true
+                      StackrOverlayManager.show(this)
+                      StackrEvents.postLog("Floating pill on.")
+                      switchOverlay.isChecked = true
+                  } else {
+                      StackrOverlayManager.isOverlayEnabled = false
+                      switchOverlay.isChecked = false
+                      StackrEvents.postLog("Overlay permission denied — floating pill stays off.")
+                  }
+                  refreshUi()
+              }
               private lateinit var seekAreaGap: SeekBar
               private lateinit var valAreaGap: TextView
               private lateinit var seekDetourMins: SeekBar
@@ -2896,10 +2946,10 @@ jobs:
 
                   val btnAccessibility = findViewById<Button>(R.id.btnEnableAccessibility)
                   val btnOverlayPerm = findViewById<Button>(R.id.btnEnableOverlay)
-                  val switchOverlay = findViewById<Switch>(R.id.switchOverlay)
-                  val switchAutoAccept = findViewById<Switch>(R.id.switchAutoAccept)
-                  val switchWaze = findViewById<Switch>(R.id.switchWaze)
-                  val switchDeadhead = findViewById<Switch>(R.id.switchDeadhead)
+                  switchOverlay = findViewById(R.id.switchOverlay)
+                  switchAutoAccept = findViewById(R.id.switchAutoAccept)
+                  switchWaze = findViewById(R.id.switchWaze)
+                  switchDeadhead = findViewById(R.id.switchDeadhead)
                   seekAreaGap = findViewById(R.id.seekAreaGap)
                   valAreaGap = findViewById(R.id.valAreaGap)
                   seekDetourMins = findViewById(R.id.seekDetourMins)
@@ -2950,7 +3000,7 @@ jobs:
                   btnFlexStationHere.setOnClickListener {
                       RouteStackEngine.flexStationPinLat = RouteStackEngine.driverLat
                       RouteStackEngine.flexStationPinLng = RouteStackEngine.driverLng
-                      StackrAccessibilityService.lastLogMessage = "Flex station pinned at your current location."
+                      StackrEvents.postLog("Flex station pinned at your current location.")
                       refreshUi()
                   }
 
@@ -2960,20 +3010,20 @@ jobs:
                       val endMs = parseBlockTime(etFlexEnd.text.toString().trim())
                       val pay = etFlexPay.text.toString().trim().toDoubleOrNull()
                       if (startMs == null || endMs == null || endMs <= startMs || pay == null) {
-                          StackrAccessibilityService.lastLogMessage = "Flex block needs a station, start/end times like 2:15 PM, and a pay amount."
+                          StackrEvents.postLog("Flex block needs a station, start/end times like 2:15 PM, and a pay amount.")
                           refreshUi()
                           return@setOnClickListener
                       }
                       pendingFlexStation = station
                       RouteStackEngine.startFlexBlock(station, startMs, endMs, pay)
-                      StackrAccessibilityService.lastLogMessage = "Flex block entered: $station."
+                      StackrEvents.postLog("Flex block entered: $station.")
                       StackrOverlayManager.refreshPill()
                       refreshUi()
                   }
 
                   btnFlexDone.setOnClickListener {
                       RouteStackEngine.endFlexBlock()
-                      StackrAccessibilityService.lastLogMessage = "Flex block done — return mode on."
+                      StackrEvents.postLog("Flex block done — return mode on.")
                       StackrOverlayManager.refreshPill()
                       refreshUi()
                   }
@@ -2981,7 +3031,7 @@ jobs:
                   btnEndReturn.setOnClickListener {
                       RouteStackEngine.endReturnMode()
                       localTts?.speak("Return trip done.", TextToSpeech.QUEUE_FLUSH, null, "FLEX")
-                      StackrAccessibilityService.lastLogMessage = "Return trip done."
+                      StackrEvents.postLog("Return trip done.")
                       StackrOverlayManager.refreshPill()
                       refreshUi()
                   }
@@ -2993,14 +3043,14 @@ jobs:
                               val (hLat, hLng) = RouteStackEngine.resolveCoords(typed, RouteStackEngine.driverLat, RouteStackEngine.driverLng)
                               RouteStackEngine.setHome(hLat, hLng, typed)
                               RouteStackEngine.saveFlexPrefs(this)
-                              StackrAccessibilityService.lastLogMessage = "Home set to $typed."
+                              StackrEvents.postLog("Home set to $typed.")
                           } else {
-                              StackrAccessibilityService.lastLogMessage = "Address not recognized — stand at home and tap SET HOME HERE."
+                              StackrEvents.postLog("Address not recognized — stand at home and tap SET HOME HERE.")
                           }
                       } else {
                           RouteStackEngine.setHome(RouteStackEngine.driverLat, RouteStackEngine.driverLng, "Home")
                           RouteStackEngine.saveFlexPrefs(this)
-                          StackrAccessibilityService.lastLogMessage = "Home set to your current location."
+                          StackrEvents.postLog("Home set to your current location.")
                       }
                       refreshUi()
                   }
@@ -3016,7 +3066,7 @@ jobs:
                       val nowPaused = !RouteStackEngine.isPaused
                       RouteStackEngine.setPaused(nowPaused, this)
                       localTts?.speak(if (nowPaused) "STACKR paused — no offers will be graded." else "STACKR live — grading offers.", TextToSpeech.QUEUE_FLUSH, null, "PAUSE")
-                      StackrAccessibilityService.lastLogMessage = if (nowPaused) "STACKR paused — no offers will be graded." else "STACKR live — grading offers."
+                      StackrEvents.postLog(if (nowPaused) "STACKR paused — no offers will be graded." else "STACKR live — grading offers.")
                       StackrOverlayManager.refreshPill()
                       refreshUi()
                   }
@@ -3027,11 +3077,22 @@ jobs:
                   switchDeadhead.isChecked = RouteStackEngine.deadheadMode
 
                   switchOverlay.setOnCheckedChangeListener { _, isChecked ->
-                      StackrOverlayManager.isOverlayEnabled = isChecked
                       if (isChecked) {
-                          if (Settings.canDrawOverlays(this)) StackrOverlayManager.show(this)
-                          else openOverlayPermissionSettings()
-                      } else StackrOverlayManager.hide()
+                          if (Settings.canDrawOverlays(this)) {
+                              StackrOverlayManager.isOverlayEnabled = true
+                              StackrOverlayManager.show(this)
+                          } else {
+                              // v2.3.2 (#2): do NOT claim the overlay is on
+                              // yet — the launcher result decides. While the
+                              // settings screen is open, refreshUi() skips
+                              // re-syncing this switch (overlayPermissionPending).
+                              overlayPermissionPending = true
+                              openOverlayPermissionSettings()
+                          }
+                      } else {
+                          StackrOverlayManager.isOverlayEnabled = false
+                          StackrOverlayManager.hide()
+                      }
                       refreshUi()
                   }
 
@@ -3079,7 +3140,7 @@ jobs:
                   btnCompleteStop.setOnClickListener {
                       // FIX: Explicitly activate route session on manual actions so stacking kicks in
                       RouteStackEngine.activateRouteSession("manual_anchor_override")
-                      StackrAccessibilityService.lastLogMessage = RouteStackEngine.completeNextStop()
+                      StackrEvents.postLog(RouteStackEngine.completeNextStop())
                       StackrOverlayManager.refreshPill()
                       refreshUi()
                   }
@@ -3087,7 +3148,7 @@ jobs:
                   btnResetRoute.setOnClickListener {
                       RouteStackEngine.resetRoute()
                       simStep = 0
-                      StackrAccessibilityService.lastLogMessage = "Route cleared • Ready for Anchor ping"
+                      StackrEvents.postLog("Route cleared • Ready for Anchor ping")
                       StackrOverlayManager.refreshPill()
                       refreshUi()
                   }
@@ -3112,13 +3173,22 @@ jobs:
                   }
                   StackrAccessibilityService.onStateUpdated = { runOnUiThread { refreshUi() } }
 
+                  // v2.3.2 (#4): log lines arrive on the StackrEvents
+                  // SharedFlow now — this collector owns lastEventText and
+                  // refreshUi() no longer reads a static string.
+                  lifecycleScope.launch {
+                      StackrEvents.log.collect { msg -> lastEventText.text = msg }
+                  }
+
                   if (Settings.canDrawOverlays(this) && StackrOverlayManager.isOverlayEnabled) StackrOverlayManager.show(this)
                   requestGpsUpdates()
                   refreshUi()
               }
 
               private fun openOverlayPermissionSettings() {
-                  startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+                  // v2.3.2 (#2): launched through the result launcher so a
+                  // deny is observed and the switch is reverted.
+                  overlayPermissionLauncher.launch(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
               }
 
               override fun onInit(status: Int) {
@@ -3127,6 +3197,12 @@ jobs:
 
               override fun onResume() {
                   super.onResume()
+                  // v2.3.2 (#2): if the permission was revoked while the app
+                  // was backgrounded, drop the overlay intent so the switch
+                  // cannot claim On with no permission behind it.
+                  if (!Settings.canDrawOverlays(this) && StackrOverlayManager.isOverlayEnabled) {
+                      StackrOverlayManager.isOverlayEnabled = false
+                  }
                   if (Settings.canDrawOverlays(this) && StackrOverlayManager.isOverlayEnabled) StackrOverlayManager.show(this)
                   refreshUi()
               }
@@ -3164,7 +3240,7 @@ jobs:
                           RouteStackEngine.driverLat = 39.9612
                           RouteStackEngine.driverLng = -82.9988
                           val res = RouteStackEngine.evaluateStructuredOffer("DoorDash", 22.50, 11.2, 22.0, "Short North", "Westerville", 14.0, 42.0)
-                          StackrAccessibilityService.lastLogMessage = "[SIM 1: ${res.verdict}] ${res.reason}"
+                          StackrEvents.postLog("[SIM 1: ${res.verdict}] ${res.reason}")
                           localTts?.speak(res.ttsSpeech, TextToSpeech.QUEUE_FLUSH, null, "SIM")
                           StackrOverlayManager.showVerdictFlash(this, res, onConfirmAutoAccept = {
                               RouteStackEngine.commitPendingCandidate(res.orderId)
@@ -3180,7 +3256,7 @@ jobs:
                           RouteStackEngine.driverLng = -83.0180
                           // SIM 2: cross-app add-on — GrubHub joins the DoorDash anchor on one route.
                           val res = RouteStackEngine.evaluateStructuredOffer("GrubHub", 8.50, 7.4, 16.0, "Clintonville", "Westerville", 15.0, 38.0)
-                          StackrAccessibilityService.lastLogMessage = "[SIM 2: ${res.verdict}] ${res.reason}"
+                          StackrEvents.postLog("[SIM 2: ${res.verdict}] ${res.reason}")
                           localTts?.speak(res.ttsSpeech, TextToSpeech.QUEUE_FLUSH, null, "SIM")
                           StackrOverlayManager.showVerdictFlash(this, res, onConfirmAutoAccept = {
                               RouteStackEngine.commitPendingCandidate(res.orderId)
@@ -3193,7 +3269,7 @@ jobs:
                       3 -> {
                           // SIM 3: third app on a two-app route -> TWO_APP_LIMIT SKIP (route already holds DD + GH).
                           val res = RouteStackEngine.evaluateStructuredOffer("UberEats", 11.00, 9.0, 19.0, "Hilliard", "Grove City", 15.0, 35.0)
-                          StackrAccessibilityService.lastLogMessage = "[SIM 3: ${res.verdict}] ${res.reason}"
+                          StackrEvents.postLog("[SIM 3: ${res.verdict}] ${res.reason}")
                           localTts?.speak(res.ttsSpeech, TextToSpeech.QUEUE_FLUSH, null, "SIM")
                           StackrOverlayManager.showVerdictFlash(this, res, null)
                       }
@@ -3208,7 +3284,7 @@ jobs:
                           val nowMs = System.currentTimeMillis()
                           RouteStackEngine.startFlexBlock("Lockbourne VOH3", nowMs + 120L * 60_000L, nowMs + 300L * 60_000L, 96.00)
                           val res = RouteStackEngine.evaluateStructuredOffer("DoorDash", 12.00, 6.0, 15.0, "Short North", "Lockbourne", 14.0, 38.0)
-                          StackrAccessibilityService.lastLogMessage = "[SIM 4: ${res.verdict}] ${res.reason}"
+                          StackrEvents.postLog("[SIM 4: ${res.verdict}] ${res.reason}")
                           localTts?.speak(res.ttsSpeech, TextToSpeech.QUEUE_FLUSH, null, "SIM")
                           StackrOverlayManager.showVerdictFlash(this, res, onConfirmAutoAccept = {
                               RouteStackEngine.commitPendingCandidate(res.orderId)
@@ -3251,13 +3327,25 @@ jobs:
                   overlayBadge.text = if (canOverlay) "● FLOATING PILL READY" else "○ OVERLAY PERMISSION NEEDED"
                   overlayBadge.setTextColor(if (canOverlay) 0xFF19C37D.toInt() else 0xFFFFCC4D.toInt())
 
-                  lastEventText.text = StackrAccessibilityService.lastLogMessage
+                  // v2.3.2 (#4): lastEventText is owned by the StackrEvents
+                  // collector now, not by refreshUi() — the old static read
+                  // is gone.
                   acceptRateText.text = RouteStackEngine.acceptanceSummaryText()
                   mileageText.text = RouteStackEngine.mileageSummaryText()
                   btnNavApp.text = "NAV: " + RouteStackEngine.navApp.uppercase(Locale.US)
                   flexStatusText.text = RouteStackEngine.flexStatusText()
                   homeStatusText.text = RouteStackEngine.homeStatusText()
                   btnPause.text = if (RouteStackEngine.isPaused) "▶ RESUME STACKR" else "⏸ PAUSE STACKR"
+                  // v2.3.2 (#1): re-sync every switch from engine state on
+                  // each refresh — the background service changes these and
+                  // the switches used to go stale. The != guard keeps the
+                  // re-sync from re-firing the checked-change listeners.
+                  // The overlay switch is skipped while a permission
+                  // request is in flight (overlayPermissionPending).
+                  if (!overlayPermissionPending && switchOverlay.isChecked != StackrOverlayManager.isOverlayEnabled) switchOverlay.isChecked = StackrOverlayManager.isOverlayEnabled
+                  if (switchAutoAccept.isChecked != RouteStackEngine.autoAcceptEnabled) switchAutoAccept.isChecked = RouteStackEngine.autoAcceptEnabled
+                  if (switchWaze.isChecked != RouteStackEngine.autoLaunchWaze) switchWaze.isChecked = RouteStackEngine.autoLaunchWaze
+                  if (switchDeadhead.isChecked != RouteStackEngine.deadheadMode) switchDeadhead.isChecked = RouteStackEngine.deadheadMode
                   if (switchFinishHome.isChecked != RouteStackEngine.finishCloseToHome) switchFinishHome.isChecked = RouteStackEngine.finishCloseToHome
                   btnNavigateNext.text = if (RouteStackEngine.navApp == "Waze") "NAVIGATE — NEXT STOP" else "NAVIGATE — ALL STOPS"
                   routeSummaryText.text = String.format(Locale.US, "Active Orders: %d • Apps: %s • Locked Corridor Pay: $%.2f", RouteStackEngine.activeOrderCount(), RouteStackEngine.routePlatforms().joinToString("+").ifEmpty { "—" }, RouteStackEngine.totalLockedPayout())
