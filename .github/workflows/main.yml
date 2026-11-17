@@ -76,8 +76,8 @@ jobs:
                   applicationId = "com.builttoearn.stackr"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 7
-                  versionName = "2.3.2-ui-arch"
+                  versionCode = 10
+                  versionName = "2.3.5-clear-arrivals"
               }
 
               buildTypes {
@@ -173,7 +173,7 @@ jobs:
           files["app/src/main/res/values/strings.xml"] = '''<?xml version="1.0" encoding="utf-8"?>
           <resources>
               <string name="app_name">STACKR Agent</string>
-              <string name="accessibility_service_description">Reads incoming DoorDash, GrubHub, and Uber Eats offer cards, displays the floating Co-Pilot HUD overlay, evaluates live corridor stacking across two apps at once and SLA deadlines, guards your acceptance rate, auto-accepts profitable stacked offers, tracks real driven miles, routes all remaining stops in Google Maps, and speaks arrival and route updates.</string>
+              <string name="accessibility_service_description">Reads incoming DoorDash, GrubHub, and Uber Eats offer cards, displays the floating Co-Pilot HUD overlay, evaluates live corridor stacking across three apps at once and SLA deadlines, guards your acceptance rate, auto-accepts profitable stacked offers, tracks real driven miles, routes all remaining stops in Google Maps, and speaks arrival and route updates.</string>
           </resources>
           '''
 
@@ -205,7 +205,10 @@ jobs:
 
           files["app/src/main/res/drawable/bg_flash_skip.xml"] = '''<?xml version="1.0" encoding="utf-8"?>
           <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="#F5261115" />
+              <!-- v2.3.3 (fix 7): semi-transparent dark instead of near-opaque
+                   black — the old #F5261115 blanket was way too intrusive
+                   over the navigation map. Green STACK bg untouched. -->
+              <solid android:color="#B31A1216" />
               <corners android:radius="18dp" />
               <stroke android:width="2dp" android:color="#FF4D4F" />
           </shape>
@@ -786,6 +789,19 @@ jobs:
                           android:layout_height="wrap_content"
                           android:orientation="horizontal"
                           android:layout_marginTop="12dp">
+                          <!-- v2.3.3 (fix 3): BACK undoes the last stop advance
+                               (pill tap / completion screen / arrival auto-advance)
+                               so an accidental tap never strands the driver past
+                               their orders with the mileage zeroed. -->
+                          <Button
+                              android:id="@+id/btnBackStop"
+                              android:layout_width="0dp"
+                              android:layout_height="44dp"
+                              android:layout_weight="1"
+                              android:layout_marginEnd="6dp"
+                              android:backgroundTint="#1E2633"
+                              android:text="← BACK"
+                              android:textColor="#19C37D" />
                           <Button
                               android:id="@+id/btnCompleteStop"
                               android:layout_width="0dp"
@@ -1081,7 +1097,11 @@ jobs:
               val guardBadge: String = "",
               val appBadge: String = "",
               val isCrossApp: Boolean = false,
-              val flexBadge: String = ""
+              val flexBadge: String = "",
+              // v2.3.3 (fix 6): drop-off area name from the offer screen
+              // (matchedZones) so the verdict can announce it. Empty when
+              // the gate that built this result never saw the offer text.
+              val dropoffArea: String = ""
           )
 
           object RouteStackEngine {
@@ -1116,6 +1136,17 @@ jobs:
                   platform.contains("grubhub", ignoreCase = true) -> "GrubHub"
                   platform.contains("uber", ignoreCase = true) -> "UberEats"
                   else -> platform
+              }
+
+              // v2.3.5: TTS-friendly platform names for arrival / route
+              // announcements. "UberEats" as one word mumbles in TTS and
+              // "GrubHub" reads as two words - with three apps live at once
+              // the platform has to land clearly on the first hearing.
+              fun spokenPlatform(platform: String): String = when (normalizedPlatform(platform)) {
+                  "DoorDash" -> "DoorDash"
+                  "GrubHub" -> "Grubhub"
+                  "UberEats" -> "Uber Eats"
+                  else -> normalizedPlatform(platform)
               }
 
               // Small app badge on every stop so the driver knows which app
@@ -1200,8 +1231,8 @@ jobs:
                   editor.apply()
               }
 
-              // --- FEATURE 2: Two apps live together on one route ---
-              // One route, one corridor, one SLA guard across both apps. Never
+              // --- FEATURE 2: Three apps live together on one route ---
+              // One route, one corridor, one SLA guard across all three apps. Never
               // run a separate guard per app, and never double-count pay or
               // miles: totalLockedPayout() sums each order's single DROPOFF
               // payout once, per distinct order.
@@ -1211,7 +1242,7 @@ jobs:
                   val norm = normalizedPlatform(platform)
                   return activeWaypoints.isNotEmpty() && activeWaypoints.any { normalizedPlatform(it.platform) != norm }
               }
-              fun routeHasTwoApps(): Boolean = routePlatforms().size >= 2
+              fun routeHasThreeApps(): Boolean = routePlatforms().size >= 3
 
               // --- FEATURE 3 (v2.2): Navigation — Google Maps is the DEFAULT
               // nav app (Waze was giving problems). Maps takes ALL remaining
@@ -1605,6 +1636,16 @@ jobs:
               private var completedRoutePay = 0.0
               private var lastGuardState = false
               private val announcedArrivals = mutableSetOf<String>()
+              // v2.3.3 (fix 3): history of completed stops so BACK can undo
+              // the last advance (pill tap or completion screen). Bounded
+              // so an all-day run cannot grow it without limit.
+              private val completedStopHistory = ArrayDeque<Waypoint>()
+              private var lastCompletedRouteMiles = 0.0
+              private var lastCompletedRoutePay = 0.0
+              private var lastCompletedWasRouteEnd = false
+              // v2.3.3 (fix 4): fired whenever the stop list changes so the
+              // floating pill can re-render after an auto-advance.
+              var onStopsChanged: (() -> Unit)? = null
               private val announcedRouteEvents = mutableMapOf<String, Long>()
               private var appContext: Context? = null
               private val tripLog = mutableListOf<TripEntry>()
@@ -1641,19 +1682,35 @@ jobs:
               }
 
               // --- FEATURE 4 (v2.2): Arrival voice alert ---
-              // Within 100 m of the next pickup/dropoff, speak ONCE:
-              // "Arrived, DoorDash pickup, order for [name]". The name comes
-              // from the offer text (restaurant for pickup, customer for
-              // dropoff); when no name is in the offer data, the stop label
-              // / address is spoken instead. NEVER invent a name.
+              // Within 100 m of the next pickup/dropoff, speak ONCE, in
+              // short sentences so each piece lands while driving with
+              // three apps live at once:
+              //   "Arrived. Uber Eats. Dropoff. Order for Sarah."
+              //   "Arrived. DoorDash. Pickup. Grandma's Pizza and Pasta."
+              // The platform is spoken with spaces ("Uber Eats", not
+              // "UberEats"). Pickup speaks the restaurant name, dropoff
+              // speaks the customer name. Both come from the offer text;
+              // when no name is in the offer data, the stop label is
+              // spoken and the gap is said out loud ("No customer name
+              // on the offer") instead of silently passing the label
+              // off as a name. NEVER invent a name.
               fun checkArrival() {
                   val next = activeWaypoints.firstOrNull() ?: return
                   val distMeters = haversineMiles(driverLat, driverLng, next.lat, next.lng) * 1609.34
                   if (distMeters > arrivalRadiusMeters) return
                   if (!announcedArrivals.add(next.stopId)) return
-                  val namePart = if (next.orderName.isNotBlank()) "order for ${next.orderName}" else next.label
-                  val msg = "Arrived, ${normalizedPlatform(next.platform)} ${next.stopType.lowercase(Locale.US)}, $namePart"
+                  val spoken = spokenPlatform(next.platform)
+                  val msg = if (next.orderName.isNotBlank()) {
+                      if (next.stopType == "DROPOFF") "Arrived. $spoken. Dropoff. Order for ${next.orderName}."
+                      else "Arrived. $spoken. Pickup. ${next.orderName}."
+                  } else {
+                      if (next.stopType == "DROPOFF") "Arrived. $spoken. Dropoff. ${next.label}. No customer name on the offer."
+                      else "Arrived. $spoken. Pickup. ${next.label}. No restaurant name on the offer."
+                  }
                   fireRouteEvent("arrived:${next.stopId}", msg)
+                  // v2.3.3 corrected Nov 17 (Travis): arrival ANNOUNCES only.
+                  // The app NEVER completes a stop by itself — completing a
+                  // stop is the driver's tap on Complete Stop. No auto-advance.
               }
 
               // Route-update voice: one short line per event, deduped by key
@@ -1912,10 +1969,13 @@ jobs:
                           if (isGuardActive()) String.format(Locale.US, "$%.2f/mi • $%.0f/hr (Anchor • RATE GUARD floors $%.2f/mi • $%.0f/hr)", perMile, perHour, effAnchorMile, effAnchorHour)
                           else String.format(Locale.US, "$%.2f/mi • $%.0f/hr (Anchor)", perMile, perHour)
                       } else String.format(Locale.US, "Below floor ($%.2f/mi • $%.0f/hr)", perMile, perHour)
+                      // v2.3.3 (fix 6): announce the drop-off area — the
+                      // area name is all DoorDash/Uber show before accept;
+                      // the exact street address is never read or spoken.
                       val tts = if (passes) {
-                          if (isGuardActive()) String.format(Locale.US, "Stack anchor. Rate guard on. %.2f dollars, %.2f per mile.", payout, perMile)
-                          else String.format(Locale.US, "Stack anchor. %.2f dollars, %.2f per mile.", payout, perMile)
-                      } else String.format(Locale.US, "Skip. %.2f per mile.", perMile)
+                          if (isGuardActive()) String.format(Locale.US, "Stack anchor. Rate guard on. %.2f dollars, %.2f per mile. Drop-off %s.", payout, perMile, dropoffLabel)
+                          else String.format(Locale.US, "Stack anchor. %.2f dollars, %.2f per mile. Drop-off %s.", payout, perMile, dropoffLabel)
+                      } else String.format(Locale.US, "Skip. %.2f per mile. Drop-off %s.", perMile, dropoffLabel)
 
                       return EvaluationResult(
                           verdict = if (passes) "STACK" else "SKIP",
@@ -1928,6 +1988,7 @@ jobs:
                           slaBufferMins = dropoffDueMins - estMins,
                           reason = reason,
                           ttsSpeech = tts,
+                          dropoffArea = dropoffLabel,
                           wazeNavUrl = navUrlForStop(newPickup),
                           optimizedStops = candidateSeq.map { "${it.stopType}: ${it.label}" },
                           platform = platform,
@@ -1941,20 +2002,21 @@ jobs:
 
                   val baseline = simulateSequence(activeWaypoints, nowMs)
 
-                  // FEATURE 2: one route holds at most TWO apps at once. A
-                  // third app cannot join until an app's stops are complete.
-                  if (routeHasTwoApps() && normalizedPlatform(platform) !in routePlatforms()) {
+                  // FEATURE 2: one route holds at most THREE apps at once. A
+                  // fourth app cannot join until an app's stops are complete.
+                  if (routeHasThreeApps() && normalizedPlatform(platform) !in routePlatforms()) {
                       return EvaluationResult(
                           verdict = "SKIP",
-                          mode = "TWO_APP_LIMIT",
+                          mode = "THREE_APP_LIMIT",
                           autoAccept = false,
                           orderId = orderId,
                           payout = payout,
                           metricPerMile = 0.0,
                           metricPerHour = 0.0,
                           slaBufferMins = 0.0,
-                          reason = "Route already has 2 apps (${routePlatforms().joinToString(" + ")}): ${normalizedPlatform(platform)} cannot join this route",
-                          ttsSpeech = "Skip. Route already has two apps.",
+                          reason = "Route already has 3 apps (${routePlatforms().joinToString(" + ")}): ${normalizedPlatform(platform)} cannot join this route",
+                          ttsSpeech = "Skip. Route already has three apps. Drop-off $dropoffLabel.",
+                          dropoffArea = dropoffLabel,
                           wazeNavUrl = "",
                           optimizedStops = activeWaypoints.map { "${it.stopType}: ${it.label}" },
                           platform = platform,
@@ -1982,7 +2044,8 @@ jobs:
                           metricPerHour = 0.0,
                           slaBufferMins = 0.0,
                           reason = "Route already has 3 active orders — finish or drop one before stacking more",
-                          ttsSpeech = "Skip. Route already has three orders.",
+                          ttsSpeech = "Skip. Route already has three orders. Drop-off $dropoffLabel.",
+                          dropoffArea = dropoffLabel,
                           wazeNavUrl = "",
                           optimizedStops = activeWaypoints.map { "${it.stopType}: ${it.label}" },
                           platform = platform,
@@ -2018,7 +2081,8 @@ jobs:
                           metricPerHour = 0.0,
                           slaBufferMins = 0.0,
                           reason = "SLA Guardrail: Detour risks late stop",
-                          ttsSpeech = "Skip. Off corridor or risks late delivery.",
+                          ttsSpeech = "Skip. Off corridor or risks late delivery. Drop-off $dropoffLabel.",
+                          dropoffArea = dropoffLabel,
                           wazeNavUrl = "",
                           optimizedStops = activeWaypoints.map { "${it.stopType}: ${it.label}" },
                           platform = platform,
@@ -2058,7 +2122,8 @@ jobs:
                           metricPerHour = 0.0,
                           slaBufferMins = bestEval.minSlackMins,
                           reason = String.format(Locale.US, "Off corridor: +%.1f mi / %.0f min detour", marginalMiles, marginalMins),
-                          ttsSpeech = "Skip. Too far out of the way.",
+                          ttsSpeech = "Skip. Too far out of the way. Drop-off $dropoffLabel.",
+                          dropoffArea = dropoffLabel,
                           wazeNavUrl = "",
                           optimizedStops = activeWaypoints.map { "${it.stopType}: ${it.label}" },
                           platform = platform,
@@ -2081,7 +2146,8 @@ jobs:
                           metricPerHour = 0.0,
                           slaBufferMins = bestEval.minSlackMins,
                           reason = String.format(Locale.US, "Too far from route: %.1f mi from nearest stop", nearestStopMiles),
-                          ttsSpeech = "Skip. Too far from your area.",
+                          ttsSpeech = "Skip. Too far from your area. Drop-off $dropoffLabel.",
+                          dropoffArea = dropoffLabel,
                           wazeNavUrl = "",
                           optimizedStops = activeWaypoints.map { "${it.stopType}: ${it.label}" },
                           platform = platform,
@@ -2107,8 +2173,9 @@ jobs:
                   val crossLabel = if (crossApp) "Cross-app ${anchorPlatform() ?: ""}->${normalizedPlatform(platform)}: " else ""
                   val reason = if (passesStack) String.format(Locale.US, "%s+%.1f mi • $%.2f/marg mi • %.0fm cushion", crossLabel, marginalMiles, margPerMile, bestEval.minSlackMins)
                   else String.format(Locale.US, "%s+%.1f detour mi ($%.2f/marg mi)", crossLabel, marginalMiles, margPerMile)
-                  val tts = if (passesStack) String.format(Locale.US, "Stack add-on%s, %.2f dollars. Adds %.1f miles.", if (crossApp) " from ${normalizedPlatform(platform)}" else "", payout, marginalMiles)
-                  else String.format(Locale.US, "Skip. Adds %.1f detour miles.", marginalMiles)
+                  // v2.3.3 (fix 6): announce the drop-off area on add-ons too.
+                  val tts = if (passesStack) String.format(Locale.US, "Stack add-on%s, %.2f dollars. Adds %.1f miles. Drop-off %s.", if (crossApp) " from ${spokenPlatform(platform)}" else "", payout, marginalMiles, dropoffLabel)
+                  else String.format(Locale.US, "Skip. Adds %.1f detour miles. Drop-off %s.", marginalMiles, dropoffLabel)
 
                   return EvaluationResult(
                       verdict = if (passesStack) "STACK" else "SKIP",
@@ -2121,6 +2188,7 @@ jobs:
                       slaBufferMins = bestEval.minSlackMins,
                       reason = reason,
                       ttsSpeech = tts,
+                      dropoffArea = dropoffLabel,
                       wazeNavUrl = navUrlForStop(nextStop),
                       optimizedStops = bestSeq.map { "${it.stopType}: ${it.label}" },
                       platform = platform,
@@ -2144,6 +2212,13 @@ jobs:
                   pendingCandidateOrderId = null
                   if (wasEmpty) {
                       // Route starts here: mileage tracker zeroes and starts.
+                      // v2.3.3 (fix 3): a new route also clears the BACK
+                      // history — stops from the old route cannot be undone
+                      // into the new one.
+                      completedStopHistory.clear()
+                      lastCompletedRouteMiles = 0.0
+                      lastCompletedRoutePay = 0.0
+                      lastCompletedWasRouteEnd = false
                       routeMiles = 0.0
                       completedRoutePay = 0.0
                       announcedArrivals.clear()
@@ -2158,7 +2233,7 @@ jobs:
                       val sim = simulateSequence(activeWaypoints, System.currentTimeMillis())
                       val added = stops.firstOrNull { it.orderId == committedOrderId && it.stopType == "DROPOFF" }
                       if (added != null) {
-                          fireRouteEvent("added:${added.stopId}", String.format(Locale.US, "Added %s %s, %s. Route now %.1f miles, %.0f minutes.", normalizedPlatform(added.platform), added.stopType.lowercase(Locale.US), added.label, sim.totalMiles, sim.totalMins))
+                          fireRouteEvent("added:${added.stopId}", String.format(Locale.US, "Added %s %s, %s. Route now %.1f miles, %.0f minutes.", spokenPlatform(added.platform), added.stopType.lowercase(Locale.US), added.label, sim.totalMiles, sim.totalMins))
                       }
                       if (sim.minSlackMins < 10.0) {
                           fireRouteEvent("sla:${sim.minSlackMins.toInt()}", String.format(Locale.US, "Warning, %d minutes slack on the next dropoff.", sim.minSlackMins.toInt()))
@@ -2177,6 +2252,10 @@ jobs:
                   if (activeWaypoints.isEmpty()) return "No active stops."
                   val apps = routePlatforms().joinToString("+").ifEmpty { "—" }
                   val done = activeWaypoints.removeAt(0)
+                  // v2.3.3 (fix 3): remember the completed stop so BACK can
+                  // put it back. History is capped at 20 stops.
+                  completedStopHistory.addLast(done)
+                  if (completedStopHistory.size > 20) completedStopHistory.removeFirst()
                   announcedArrivals.remove(done.stopId)
                   if (done.stopType == "DROPOFF") completedRoutePay += done.payout
                   if (activeWaypoints.isEmpty()) {
@@ -2185,6 +2264,8 @@ jobs:
                       // trip is logged when the block / return actually ends.
                       if (flexBlock != null || isReturnMode) {
                           val tail = if (flexBlock != null) "Flex block still active." else "Return trip still going."
+                          lastCompletedWasRouteEnd = false
+                          onStopsChanged?.invoke()
                           return "Completed ${done.stopType}: ${done.label}. $tail"
                       }
                       isRouteActive = false
@@ -2193,19 +2274,73 @@ jobs:
                       tripLog.add(TripEntry(today, apps, routeMiles, completedRoutePay))
                       if (tripLog.size > 30) tripLog.removeAt(0)
                       appContext?.let { saveTripLog(it) }
-                      routeMiles = 0.0
+                      // v2.3.3 (fix 3): snapshot the totals BEFORE clearing
+                      // the pay accumulator so BACK can un-log this trip.
+                      // routeMiles is NOT zeroed here any more — the trip's
+                      // miles stay on screen until the NEXT route starts
+                      // (commitPendingCandidate zeroes them then), so an
+                      // accidental advance never blanks the mileage screen.
+                      lastCompletedRouteMiles = routeMiles
+                      lastCompletedRoutePay = completedRoutePay
+                      lastCompletedWasRouteEnd = true
                       completedRoutePay = 0.0
                       routeStartLat = null
                       routeStartLng = null
                       onRouteActiveChanged?.invoke(false)
                       onMileageChanged?.invoke()
+                      onStopsChanged?.invoke()
                       return "Completed ${done.stopType}: ${done.label}. Route complete."
                   }
+                  lastCompletedWasRouteEnd = false
+                  onStopsChanged?.invoke()
                   return "Completed ${done.stopType}: ${done.label}. Next -> ${activeWaypoints.first().label}"
+              }
+
+              // v2.3.3 (fix 3): BACK — undo the last stop advance, whether
+              // it came from a pill tap, the completion screen, or the
+              // arrival auto-advance (fix 4). If the undone stop had ended
+              // the route, the trip it just logged is un-logged and the
+              // route totals are restored, so the mileage screen never
+              // shows zero after an accidental advance.
+              fun undoLastStop(): String {
+                  val last = completedStopHistory.removeLastOrNull() ?: return "Nothing to go back to."
+                  if (lastCompletedWasRouteEnd) {
+                      val today = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(java.util.Date())
+                      val lastEntry = tripLog.lastOrNull()
+                      if (lastEntry != null && lastEntry.date == today && lastEntry.miles == lastCompletedRouteMiles && lastEntry.pay == lastCompletedRoutePay) {
+                          tripLog.removeAt(tripLog.size - 1)
+                          appContext?.let { saveTripLog(it) }
+                      }
+                      dayPay = max(0.0, dayPay - lastCompletedRoutePay)
+                      routeMiles = lastCompletedRouteMiles
+                      completedRoutePay = lastCompletedRoutePay
+                      lastCompletedRouteMiles = 0.0
+                      lastCompletedRoutePay = 0.0
+                      lastCompletedWasRouteEnd = false
+                  } else if (last.stopType == "DROPOFF") {
+                      completedRoutePay = max(0.0, completedRoutePay - last.payout)
+                  }
+                  activeWaypoints.add(0, last)
+                  // Keep the undone stop from instantly re-announcing and
+                  // re-auto-advancing while the driver is still standing
+                  // at it — the driver advances it again by hand (or BACK
+                  // again) when they actually leave.
+                  announcedArrivals.add(last.stopId)
+                  isRouteActive = true
+                  onRouteActiveChanged?.invoke(true)
+                  onMileageChanged?.invoke()
+                  onStopsChanged?.invoke()
+                  return "Back to ${last.stopType}: ${last.label}"
               }
 
               fun resetRoute() {
                   activeWaypoints.clear()
+                  // v2.3.3 (fix 3): a manual route reset also clears the
+                  // BACK history — there is nothing to go back to.
+                  completedStopHistory.clear()
+                  lastCompletedRouteMiles = 0.0
+                  lastCompletedRoutePay = 0.0
+                  lastCompletedWasRouteEnd = false
                   // v2.3: a Flex block / return leg survives a route reset —
                   // mileage keeps running until the block or return ends.
                   isRouteActive = flexBlock != null || isReturnMode
@@ -2237,6 +2372,7 @@ jobs:
           import android.view.MotionEvent
           import android.view.View
           import android.view.WindowManager
+          import android.view.animation.TranslateAnimation
           import android.widget.LinearLayout
           import android.widget.TextView
           import java.util.Locale
@@ -2277,9 +2413,14 @@ jobs:
                               WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                               PixelFormat.TRANSLUCENT
                           ).apply {
-                              gravity = Gravity.TOP or Gravity.START
-                              x = 28
-                              y = 240
+                              // v2.3.3 (fix 7): slim top banner — centred at
+                              // the very top so it never covers the middle of
+                              // the screen where the navigation map (and the
+                              // host app's own alerts) live. The pill stays
+                              // draggable from here.
+                              gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                              x = 0
+                              y = 32
                           }
 
                           setupTouchAndDrag(appCtx, view, wm, params)
@@ -2422,7 +2563,10 @@ jobs:
                           guardBadgeView.visibility = View.GONE
                       }
                       flashReason.text = result.reason
-                      flashNextStop.text = result.optimizedStops.firstOrNull()?.let { "Next: $it" } ?: ""
+                      // v2.3.3 (fix 6): show the drop-off area on the alert.
+                      val nextStopLine = result.optimizedStops.firstOrNull()?.let { "Next: $it" } ?: ""
+                      val dropoffLine = if (result.dropoffArea.isNotBlank()) "Drop-off ${result.dropoffArea}" else ""
+                      flashNextStop.text = if (dropoffLine.isNotEmpty() && nextStopLine.isNotEmpty()) "$nextStopLine • $dropoffLine" else nextStopLine + dropoffLine
                       val btnNavigate = view.findViewById<TextView>(R.id.btnFlashNavigate)
                       btnNavigate.text = "NAVIGATE WITH " + RouteStackEngine.navApp.uppercase(Locale.US) + " →"
                       btnNavigate.setOnClickListener {
@@ -2430,8 +2574,43 @@ jobs:
                           if (url.isNotEmpty()) launchWaze(context, url)
                       }
 
+                      // v2.3.3 (fix 1 + fix 7): the red decline popup was way
+                      // too big and its near-black blanket covered the map.
+                      // SKIP now renders as a compact slim banner (210dp,
+                      // small text, no nav button, drop-off in the reason
+                      // line). The green STACK alert below restores full
+                      // size every time, so it never inherits the small
+                      // decline styling (fix 2 — green alert untouched).
+                      val density = context.resources.displayMetrics.density
+                      if (!isStack) {
+                          val compactParams = flashContainer.layoutParams
+                          compactParams.width = (210 * density).toInt()
+                          flashContainer.layoutParams = compactParams
+                          flashContainer.setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
+                          flashTitle.textSize = 13f
+                          flashReason.textSize = 11f
+                          flashReason.maxLines = 2
+                          flashReason.ellipsize = android.text.TextUtils.TruncateAt.END
+                          flashReason.text = if (dropoffLine.isNotEmpty()) "${result.reason} • $dropoffLine" else result.reason
+                          flashNextStop.visibility = View.GONE
+                          btnNavigate.visibility = View.GONE
+                      } else {
+                          val fullParams = flashContainer.layoutParams
+                          fullParams.width = (316 * density).toInt()
+                          flashContainer.layoutParams = fullParams
+                          flashContainer.setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt())
+                          flashTitle.textSize = 17f
+                          flashReason.textSize = 12.5f
+                          flashReason.maxLines = Int.MAX_VALUE
+                          flashNextStop.visibility = View.VISIBLE
+                          btnNavigate.visibility = View.VISIBLE
+                      }
+
                       pillContainer.visibility = View.GONE
                       flashContainer.visibility = View.VISIBLE
+                      // v2.3.3 (fix 7): the banner slides up into place
+                      // instead of popping over the map.
+                      flashContainer.startAnimation(TranslateAnimation(0f, 0f, 120f, 0f).apply { duration = 250L })
 
                       if (isStack && result.autoAccept && onConfirmAutoAccept != null) {
                           flashActionRow.visibility = View.VISIBLE
@@ -2492,13 +2671,19 @@ jobs:
                   }
               }
 
+              // v2.3.3 (fix 7): the banner slides down out of the way
+              // instead of vanishing in place, then the pill comes back.
               private fun scheduleCollapse(delayMs: Long) {
                   val collapseRunnable = Runnable {
                       val view = rootView ?: return@Runnable
-                      view.findViewById<LinearLayout>(R.id.flashContainer).visibility = View.GONE
-                      view.findViewById<LinearLayout>(R.id.flashConfirmRow).visibility = View.GONE
-                      view.findViewById<LinearLayout>(R.id.pillContainer).visibility = View.VISIBLE
-                      refreshPill()
+                      val flash = view.findViewById<LinearLayout>(R.id.flashContainer)
+                      flash.startAnimation(TranslateAnimation(0f, 0f, 0f, 120f).apply { duration = 220L })
+                      mainHandler.postDelayed({
+                          flash.visibility = View.GONE
+                          view.findViewById<LinearLayout>(R.id.flashConfirmRow).visibility = View.GONE
+                          view.findViewById<LinearLayout>(R.id.pillContainer).visibility = View.VISIBLE
+                          refreshPill()
+                      }, 240L)
                   }
                   activeFlashRunnable = collapseRunnable
                   mainHandler.postDelayed(collapseRunnable, delayMs)
@@ -2556,6 +2741,10 @@ jobs:
                       if (active) MileageService.start(this) else MileageService.stop(this)
                   }
                   RouteStackEngine.onMileageChanged = { onStateUpdated?.invoke() }
+                  // v2.3.3 (fix 4): after any stop advance (manual, arrival
+                  // auto-advance, or BACK undo) re-render the floating pill
+                  // so it shows the new next stop.
+                  RouteStackEngine.onStopsChanged = { StackrOverlayManager.refreshPill() }
                   tts = TextToSpeech(this, this)
                   StackrEvents.postLog("Agent Active • Listening behind Waze")
                   StackrOverlayManager.onUserInteractionCallback = { msg ->
@@ -2973,6 +3162,7 @@ jobs:
                   btnNavApp = findViewById(R.id.btnNavApp)
                   btnNavigateNext = findViewById(R.id.btnNavigateNext)
                   val btnCompleteStop = findViewById<Button>(R.id.btnCompleteStop)
+                  val btnBackStop = findViewById<Button>(R.id.btnBackStop)
                   val btnResetRoute = findViewById<Button>(R.id.btnResetRoute)
                   val btnSimulatePing = findViewById<Button>(R.id.btnSimulatePing)
                   flexStatusText = findViewById(R.id.flexStatusText)
@@ -3145,6 +3335,16 @@ jobs:
                       refreshUi()
                   }
 
+                  btnBackStop.setOnClickListener {
+                      // v2.3.3 (fix 3): BACK — undo the last stop advance
+                      // (pill tap or completion screen) so an accidental
+                      // advance never strands the driver past their orders
+                      // with the mileage zeroed.
+                      StackrEvents.postLog(RouteStackEngine.undoLastStop())
+                      StackrOverlayManager.refreshPill()
+                      refreshUi()
+                  }
+
                   btnResetRoute.setOnClickListener {
                       RouteStackEngine.resetRoute()
                       simStep = 0
@@ -3267,7 +3467,7 @@ jobs:
                           })
                       }
                       3 -> {
-                          // SIM 3: third app on a two-app route -> TWO_APP_LIMIT SKIP (route already holds DD + GH).
+                          // SIM 3: third app joins a two-app route - UberEats stacks onto DD + GH (three-app limit).
                           val res = RouteStackEngine.evaluateStructuredOffer("UberEats", 11.00, 9.0, 19.0, "Hilliard", "Grove City", 15.0, 35.0)
                           StackrEvents.postLog("[SIM 3: ${res.verdict}] ${res.reason}")
                           localTts?.speak(res.ttsSpeech, TextToSpeech.QUEUE_FLUSH, null, "SIM")
